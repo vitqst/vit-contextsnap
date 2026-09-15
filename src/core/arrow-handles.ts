@@ -25,6 +25,7 @@ export function arrowHandles(
       const { rect } = getArrowLabelLayout(arrow, sceneBounds);
       const gap = 18 / zoom;
       const candidates = [
+        position,
         { x: middle.x, y: rect.y - gap },
         { x: middle.x, y: rect.y + rect.height + gap },
         { x: rect.x - gap, y: middle.y },

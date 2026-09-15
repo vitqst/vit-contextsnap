@@ -54,14 +54,14 @@ describe('arrow editing handles', () => {
     expect(bend({ ...arrow, label: '' })).toEqual({ x: 300, y: 240 });
   });
 
-  it('uses an accessible handle above a centered label', () => {
+  it('keeps the bend on its midpoint when the tail label leaves it clear', () => {
     const handle = bend(arrow);
-    expect(handle).toEqual({ x: 300, y: 203 });
+    expect(handle).toEqual({ x: 300, y: 240 });
     expectVisible(handle, scene, 1);
     expectOutsideLabel(arrow, scene, handle, 1);
   });
 
-  it('places the bend below a top-clamped label', () => {
+  it('keeps the bend clear of a top-clamped tail label', () => {
     const top = {
       ...arrow,
       start: { x: 100, y: 4 },
@@ -71,7 +71,6 @@ describe('arrow editing handles', () => {
     const handle = bend(top);
     expectVisible(handle, scene, 1);
     expectOutsideLabel(top, scene, handle, 1);
-    expect(handle.y).toBeGreaterThan(getArrowLabelLayout(top, scene).rect.height);
   });
 
   it('keeps the handle above a bottom-clamped label', () => {

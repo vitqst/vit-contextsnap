@@ -4,6 +4,21 @@
 
 No changes yet.
 
+## 0.2.0-rc.3 — Label placement fixes
+
+Chrome uses numeric version `0.2.0.3` and display name `0.2.0-rc.3`.
+
+- Place arrow labels above the tail by default. Drag labels independently, keep their offsets
+  when moving or resizing the arrow, and reset their position from the properties panel.
+- Place rectangle labels above the top edge. Add Top, Bottom, Inside, and Free positioning,
+  automatic Free mode on drag, and rectangle corner resizing with attached labels.
+- Share typography, label sizing, shape colors, and plain text rendering across shape labels.
+  Remove white backgrounds, halos, connector lines, and text shadows in preview and PNG export.
+- Keep independent label movement undoable, preserve crop-clamped drag positions, and avoid
+  selecting empty space between a shape and its moved label.
+
+See [preview notes and installation/update instructions](docs/releases/0.2.0-rc.3.md).
+
 ## 0.2.0-rc.2 — Prerelease preview
 
 This optional preview includes the rc.1 image-layer and Back to website features plus

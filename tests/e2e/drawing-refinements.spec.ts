@@ -8,7 +8,7 @@ import {
   inspectPng,
 } from './extension';
 
-test('attached arrow label moves the arrow; mode and shadow changes are undoable', async ({
+test('arrow label moves independently; mode and shadow changes are undoable', async ({
   page,
   extensionId,
 }) => {
@@ -26,7 +26,7 @@ test('attached arrow label moves the arrow; mode and shadow changes are undoable
   expect((await downloadPng(page)).equals(flat)).toBe(false);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   expect((await downloadPng(page)).equals(flat)).toBe(true);
-  await dragOnCanvas(page, { x: 450, y: 180 }, { x: 490, y: 260 });
+  await dragOnCanvas(page, { x: 180, y: 153 }, { x: 220, y: 233 });
   const moved = await downloadPng(page);
   expect(moved.equals(flat)).toBe(false);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
@@ -164,7 +164,7 @@ test('rectangle notes edit in place and stay with their shape through move and u
   await page.getByRole('textbox', { name: 'Edit label', exact: true }).fill('Keep this together');
   await page.getByRole('textbox', { name: 'Edit label', exact: true }).press('Control+Enter');
   const labeled = await downloadPng(page);
-  await dragOnCanvas(page, { x: 390, y: 270 }, { x: 510, y: 360 });
+  await dragOnCanvas(page, { x: 390, y: 360 }, { x: 510, y: 450 });
   expect((await downloadPng(page)).equals(labeled)).toBe(false);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   expect((await downloadPng(page)).equals(labeled)).toBe(true);
@@ -175,7 +175,7 @@ test('rectangle notes edit in place and stay with their shape through move and u
 });
 
 for (const shape of ['redact', 'white rectangle'] as const) {
-  test(`${shape} notes stay readable while typing directly on the shape`, async ({
+  test(`${shape} notes use plain shape-colored text while editing`, async ({
     page,
     extensionId,
   }) => {
@@ -194,11 +194,11 @@ for (const shape of ['redact', 'white rectangle'] as const) {
     await page.mouse.dblclick(center.x, center.y);
     const editor = page.getByRole('textbox', { name: 'Edit label', exact: true });
     await editor.fill('Readable while editing');
-    await expect(editor).toHaveCSS('color', 'rgb(255, 255, 255)');
     await expect(editor).toHaveCSS(
-      'background-color',
-      shape === 'redact' ? 'rgb(0, 0, 0)' : 'rgb(37, 36, 50)',
+      'color',
+      shape === 'redact' ? 'rgb(224, 82, 82)' : 'rgb(255, 255, 255)',
     );
+    await expect(editor).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
     await editor.press('Control+Enter');
     await page.mouse.dblclick(center.x, center.y);
     await expect(editor).toHaveValue('Readable while editing');

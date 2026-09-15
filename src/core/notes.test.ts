@@ -3,6 +3,8 @@ import {
   createSticky,
   getNoteLayout,
   objectText,
+  moveShapeLabelBy,
+  withLabelPosition,
   resizeSticky,
   stickyTextColor,
   withObjectText,
@@ -103,15 +105,38 @@ describe('text belongs to its drawing object', () => {
 });
 
 describe('bounded, attached note layout', () => {
-  it('centers a note on its owner and keeps it inside the shape', () => {
+  it('places a rectangle note above its top edge by default', () => {
     const layout = getNoteLayout(rectangle, bounds);
-    expect(layout.center).toEqual({ x: 320, y: 380 });
+    expect(layout.center.x).toBe(320);
+    expect(layout.rect.y + layout.rect.height).toBe(292);
     expect(layout.fontSize).toBe(20);
     expect(layout.lines).toEqual(['Shape note']);
-    expect(layout.rect.x).toBeGreaterThanOrEqual(200);
-    expect(layout.rect.y).toBeGreaterThanOrEqual(300);
-    expect(layout.rect.x + layout.rect.width).toBeLessThanOrEqual(440);
-    expect(layout.rect.y + layout.rect.height).toBeLessThanOrEqual(460);
+  });
+
+  it('supports bottom, inside and free placement without a jump', () => {
+    const bottom = withLabelPosition(rectangle, 'bottom', bounds);
+    expect(getNoteLayout(bottom, bounds).rect.y).toBe(468);
+    const inside = withLabelPosition(bottom, 'inside', bounds);
+    expect(getNoteLayout(inside, bounds).center).toEqual({ x: 320, y: 380 });
+    const free = withLabelPosition(bottom, 'free', bounds);
+    expect(getNoteLayout(free, bounds)).toEqual(getNoteLayout(bottom, bounds));
+  });
+
+  it('drags notes independently and follows the owner when resized', () => {
+    const before = getNoteLayout(rectangle);
+    const moved = moveShapeLabelBy(rectangle, { x: 30, y: -20 });
+    expect(moved).toMatchObject({ rect: rectangle.rect, labelPosition: 'free' });
+    expect(getNoteLayout(moved).center).toEqual({
+      x: before.center.x + 30,
+      y: before.center.y - 20,
+    });
+    const resized = { ...moved, rect: { x: 200, y: 300, width: 440, height: 260 } };
+    expect(getNoteLayout(resized).center).toEqual({
+      x: before.center.x + 130,
+      y: before.center.y + 30,
+    });
+    expect(getNoteLayout(resized).fontSize).toBe(before.fontSize);
+    expect(rectangle.labelPosition).toBeUndefined();
   });
 
   it('moves note layout with its owner without scaling the text', () => {
@@ -241,6 +266,20 @@ describe('step notes preserve the numbered circle', () => {
     expect(layout.rect.height).toBe(layout.lines.length * layout.lineHeight);
     expect(layout.lines).toEqual(['Check this step']);
     expect(step.number).toBe(1);
+  });
+
+  it('uses the configured label size for step notes', () => {
+    expect(getNoteLayout({ ...step, labelFontSize: 28 }, bounds).fontSize).toBe(28);
+  });
+
+  it('preserves wrapping when a step label is dragged into free placement', () => {
+    const labeled = { ...step, note: 'A longer step label that wraps onto several lines' };
+    const before = getNoteLayout(labeled, bounds);
+    const moved = moveShapeLabelBy(labeled, { x: 50, y: 20 }, bounds);
+    const after = getNoteLayout(moved, bounds);
+    expect(after.lines).toEqual(before.lines);
+    expect(after.center).toEqual({ x: before.center.x + 50, y: before.center.y + 20 });
+    expect(after.rect.width).toBe(before.rect.width);
   });
 
   it('bounds long notes to 200 by 100 while retaining the full editable value', () => {

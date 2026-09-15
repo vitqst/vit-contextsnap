@@ -1,7 +1,7 @@
 import { Copy, Trash2, BringToFront, SendToBack } from 'lucide-react';
-import type { BrushSettings, DrawingObject, ObjectStyle, Tool } from '../core/model';
+import type { BrushSettings, DrawingObject, ObjectStyle, Rect, Tool } from '../core/model';
 import { BrushProperties } from './BrushProperties';
-import { objectText } from '../core/notes';
+import { objectText, withLabelPosition } from '../core/notes';
 import { IconButton } from '../ui/IconButton';
 import { EffectsProperties } from './EffectsProperties';
 
@@ -10,6 +10,7 @@ interface Props {
   tool: Tool;
   style: ObjectStyle;
   selected?: DrawingObject;
+  sceneBounds: Rect;
   onStyle: (style: Partial<ObjectStyle>) => void;
   onLabel: (value: string) => void;
   onDelete: () => void;
@@ -29,6 +30,7 @@ export function Properties({
   tool,
   style,
   selected,
+  sceneBounds,
   onStyle,
   onLabel,
   onDelete,
@@ -179,6 +181,57 @@ export function Properties({
           />
         </div>
       )}
+      {selected && !['arrow', 'text', 'sticky'].includes(selected.type) && (
+        <div className="label-property">
+          <label className="property-label" htmlFor="shape-label-position">
+            Label position
+          </label>
+          <select
+            id="shape-label-position"
+            value={
+              selected.labelPosition ??
+              (selected.type === 'rectangle'
+                ? 'top'
+                : selected.type === 'step'
+                  ? 'bottom'
+                  : 'inside')
+            }
+            onChange={(event) =>
+              onUpdate(
+                withLabelPosition(
+                  selected,
+                  event.target.value as 'top' | 'bottom' | 'inside' | 'free',
+                  sceneBounds,
+                ),
+              )
+            }
+          >
+            <option value="top">Top</option>
+            <option value="bottom">Bottom</option>
+            <option value="inside">Inside</option>
+            <option value="free">Free (draggable)</option>
+          </select>
+          <label className="property-label" htmlFor="shape-label-size">
+            Label size
+          </label>
+          <select
+            id="shape-label-size"
+            value={selected.labelFontSize ?? 20}
+            onChange={(event) =>
+              onUpdate({ ...selected, labelFontSize: Number(event.target.value) })
+            }
+          >
+            {[16, 20, 24, 28, 32].map((size) => (
+              <option key={size} value={size}>
+                {size} px
+              </option>
+            ))}
+          </select>
+          <p className="property-note">
+            Drag the label to reposition it. It follows the shape when moved or resized.
+          </p>
+        </div>
+      )}
       {type === 'sticky' && (
         <p className="property-note">
           Double-click to type. Drag to move; resize from a corner. Only card text scales when
@@ -250,9 +303,12 @@ export function Properties({
               </option>
             ))}
           </select>
+          <button onClick={() => onUpdate({ ...selected, labelOffset: { x: 0, y: 0 } })}>
+            Reset label position
+          </button>
           <p className="property-note">
-            Drag the label to move its arrow. Text stays attached; long labels wrap without changing
-            font size.
+            Drag the label to reposition it. It follows the arrow when moved or resized; long labels
+            wrap.
           </p>
         </div>
       )}
@@ -290,7 +346,7 @@ export function Properties({
       {type === 'arrow' && (
         <p className="property-note">
           {selected
-            ? 'Drag an endpoint to aim. In Curved mode, drag the bend handle above the label.'
+            ? 'Drag an endpoint to aim. In Curved mode, drag the bend handle.'
             : 'Choose Straight or Curved, then drag. Hold Shift to draw straight.'}
         </p>
       )}

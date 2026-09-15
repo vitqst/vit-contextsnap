@@ -42,16 +42,17 @@ describe('quadratic arrow geometry', () => {
   });
 
   it('bounds long unbroken labels instead of extending across the screenshot', () => {
-    const bounds = objectBounds({ ...arrow, label: 'longlabel'.repeat(60) });
-    expect(bounds.width).toBeLessThanOrEqual(340);
+    const layout = getArrowLabelLayout({ ...arrow, label: 'longlabel'.repeat(60) });
+    expect(layout.rect.width).toBeLessThanOrEqual(320);
   });
 
-  it('places the label on the curve midpoint, not on the control handle', () => {
+  it('places the label by the tail with its saved offset', () => {
     expect(quadraticPoint(arrow.start, arrow.control, arrow.end, 0.5)).toEqual({
       x: 100,
       y: 50,
     });
-    expect(getArrowLabelPosition(arrow)).toEqual({ x: 100, y: 50 });
+    expect(getArrowLabelPosition(arrow)).toEqual(getArrowLabelLayout(arrow).center);
+    expect(getArrowLabelPosition(arrow).x).toBe(arrow.start.x);
   });
 
   it('creates a gentle perpendicular curve and supports a straight arrow', () => {
@@ -66,19 +67,22 @@ describe('quadratic arrow geometry', () => {
   it('moves geometry and labels together without mutating the original', () => {
     const before = structuredClone(arrow);
     const moved = moveObject(arrow, { x: 30, y: -10 }) as ArrowObject;
-    expect(getArrowLabelPosition(moved)).toEqual({ x: 130, y: 40 });
+    expect(getArrowLabelPosition(moved)).toEqual({
+      x: getArrowLabelPosition(arrow).x + 30,
+      y: getArrowLabelPosition(arrow).y - 10,
+    });
     expect(moved.start).toEqual({ x: 30, y: -10 });
     expect(moved.control).toEqual({ x: 130, y: 90 });
     expect(arrow).toEqual(before);
   });
 
-  it('preserves the bend as an endpoint moves and moves the whole arrow by its label', () => {
+  it('preserves the bend as an endpoint moves and moves only its label', () => {
     const resized = moveArrowHandle(arrow, 'end', { x: 300, y: 40 });
     expect(resized.control).toEqual({ x: 150, y: 120 });
     expect(resized.start).toEqual(arrow.start);
     const movedLabel = moveArrowHandle(resized, 'label', { x: 170, y: 95 });
     expect(getArrowLabelPosition(movedLabel)).toEqual({ x: 170, y: 95 });
-    expect(movedLabel.end).toEqual({ x: 320, y: 65 });
+    expect(movedLabel.end).toEqual(resized.end);
     expect(arrow.end).toEqual({ x: 200, y: 0 });
   });
 
@@ -298,4 +302,27 @@ describe('other drawing geometry', () => {
     });
     expect(pen.points[0]).toEqual({ x: 10, y: 10, pressure: 0.5 });
   });
+});
+
+describe('separate shape and label hit regions', () => {
+  it.each(['image', 'redact', 'blur'] as const)(
+    'does not select %s in empty space between a shape and its free label',
+    (type) => {
+      const object = {
+        id: 'shape',
+        seed: 1,
+        style: arrow.style,
+        type,
+        rect: { x: 100, y: 100, width: 100, height: 100 },
+        assetId: 'asset',
+        strength: 12,
+        note: 'Label',
+        labelPosition: 'free' as const,
+        labelOffset: { x: 400, y: 0 },
+      };
+      expect(hitTestObject(object, { x: 150, y: 150 })).toBe(true);
+      expect(hitTestObject(object, { x: 550, y: 150 })).toBe(true);
+      expect(hitTestObject(object, { x: 350, y: 150 })).toBe(false);
+    },
+  );
 });

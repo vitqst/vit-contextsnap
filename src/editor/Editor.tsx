@@ -572,15 +572,23 @@ export function Editor() {
             ).rect
           : null;
   const editingNoteLayout =
-    editing && editing.object.type !== 'arrow' && editing.object.type !== 'text'
-      ? getNoteLayout(
-          withObjectText(editing.object, editing.value || 'Add a note…'),
+    editing?.object.type === 'arrow'
+      ? getArrowLabelLayout(
+          { ...editing.object, label: editing.value || 'Add a label…' },
           state.doc.crop ??
             (image
               ? { x: 0, y: 0, width: image.naturalWidth, height: image.naturalHeight }
               : undefined),
         )
-      : null;
+      : editing && editing.object.type !== 'text'
+        ? getNoteLayout(
+            withObjectText(editing.object, editing.value || 'Add a note…'),
+            state.doc.crop ??
+              (image
+                ? { x: 0, y: 0, width: image.naturalWidth, height: image.naturalHeight }
+                : undefined),
+          )
+        : null;
   const objectCount = state.doc.objects.length;
 
   return (
@@ -672,6 +680,14 @@ export function Editor() {
               />
             </div>
             <Properties
+              sceneBounds={
+                state.doc.crop ?? {
+                  x: 0,
+                  y: 0,
+                  width: image.naturalWidth,
+                  height: image.naturalHeight,
+                }
+              }
               tool={tool}
               selected={selected}
               style={selected?.style ?? (tool === 'sticky' ? stickyStyle : style)}
@@ -785,15 +801,11 @@ export function Editor() {
                               background:
                                 editing.object.type === 'sticky'
                                   ? editing.object.style.color
-                                  : editing.object.type === 'redact'
-                                    ? '#000000'
-                                    : stickyTextColor(editing.object.style.color),
+                                  : 'transparent',
                               color:
                                 editing.object.type === 'sticky'
                                   ? stickyTextColor(editing.object.style.color)
-                                  : editing.object.type === 'redact'
-                                    ? '#ffffff'
-                                    : editing.object.style.color,
+                                  : editing.object.style.color,
                               fontWeight: 500,
                               lineHeight: `${editingNoteLayout.lineHeight * scale}px`,
                             }

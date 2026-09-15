@@ -57,20 +57,20 @@ not included in the exported image; flattened exports appear in local Recent his
 
 These are screenshots of the actual extension using fictional demo content.
 
-### Optional preview — v0.2.0-rc.2
+### Optional preview — v0.2.0-rc.3
 
-The stable **v0.2.0 download above remains the default**. The optional **v0.2.0-rc.2**
-prerelease adds drawing refinements and includes the image-layer and navigation features
-from rc.1.
+The stable **v0.2.0 download above remains the default**. The optional **v0.2.0-rc.3**
+prerelease fixes label placement and dragging, and includes the drawing, image-layer,
+and navigation features from earlier previews.
 
-[Preview ZIP](https://github.com/vitqst/vit-contextsnap/releases/download/v0.2.0-rc.2/contextsnap-0.2.0-rc.2-chrome.zip)
-· [Preview notes](docs/releases/0.2.0-rc.2.md)
-· [Preview SHA256SUMS](https://github.com/vitqst/vit-contextsnap/releases/download/v0.2.0-rc.2/SHA256SUMS)
+[Preview ZIP](https://github.com/vitqst/vit-contextsnap/releases/download/v0.2.0-rc.3/contextsnap-0.2.0-rc.3-chrome.zip)
+· [Preview notes](docs/releases/0.2.0-rc.3.md)
+· [Preview SHA256SUMS](https://github.com/vitqst/vit-contextsnap/releases/download/v0.2.0-rc.3/SHA256SUMS)
 
 Use Chrome/Chromium 120 or later and the same unzip and **Load unpacked** instructions
 above; other Chromium browsers have not been independently tested. To update an existing
 unpacked installation, **copy or download open work first**, replace the files in its
-folder with the extracted rc.2 files, then click **Reload** at `chrome://extensions`.
+folder with the extracted rc.3 files, then click **Reload** at `chrome://extensions`.
 Reopen the editor after updating. If you load the preview from a separate folder, enable
 only one ContextSnap version to avoid shortcut conflicts.
 
@@ -94,20 +94,22 @@ open, paste/drop opens an image as the background.
 
 ![RC preview image-layer workflow with an imported icon, proportional resize controls, and a labeled arrow](docs/images/image-layers.png)
 
-#### Drawing refinements in rc.2
+#### Label placement in rc.3
 
-![v0.2.0-rc.2 preview showing an attached arrow label, an editable sticky card, and a note on a rectangle](docs/images/drawing-refinements.png)
+- **Arrow labels** start at the tail, above the starting endpoint. Drag a label independently;
+  its saved offset follows the arrow when moved or resized. **Reset label position** returns
+  it to the tail. Choose **Straight** or **Curved** without changing the endpoints.
+- **Rectangle labels** start above the top edge. Choose **Top**, **Bottom**, **Inside**, or
+  **Free (draggable)** in the properties panel. Dragging a label selects Free automatically.
+  Drag the rectangle outline to move it; corner handles resize it while its label follows.
+- **Consistent label styling:** arrows and shape notes use the same font, size controls, and
+  shape color, with no background box, white outline, or text shadow. Long labels wrap.
+  Double-click a shape or its label to edit. Labels stay within the screenshot or crop.
+- **Optional shadows:** arrow strokes and sticky cards have their own **Shadow** toggle,
+  on by default. Labels stay flat.
 
-- **Attached arrow labels:** labels sit in a gap at the arrow's midpoint. Dragging a label
-  moves the whole arrow. Choose **Straight** or **Curved** for a new or selected arrow;
-  switching an existing arrow keeps its endpoints in place. Label font size stays fixed
-  when the arrow length changes; long labels wrap.
-- **Optional shadows:** one shared **Shadow** toggle controls an arrow and its label;
-  sticky cards have their own toggle. Both default on. Switch off for a flat look.
-  Other annotations and shape notes remain flat.
-- **Notes on shapes:** double-click a rectangle or any other shape to add or edit its note.
-  The note moves with its shape; Step notes sit below the circle, or above near the bottom
-  edge, keeping the number visible.
+#### Also included from rc.2
+
 - **Sticky notes — N:** place a colored card and type directly on it. Drag to move, use a
   corner to resize, and double-click to edit again. Card text scales with resizing;
   arrow labels and other text do not.
@@ -124,8 +126,8 @@ These edits support undo/redo and flattened PNG/clipboard export. Export your wo
 closing or reloading the editor; editable objects remain local to the open session.
 No new extension permissions are required.
 
-Chrome uses internal version `0.2.0.2` and displays `0.2.0-rc.2`. The numeric version
-orders this preview after both the existing stable build and rc.1.
+Chrome uses internal version `0.2.0.3` and displays `0.2.0-rc.3`. The numeric version
+orders this preview after the existing stable build and earlier RC previews.
 
 ## Released editor tools
 
@@ -154,7 +156,7 @@ The following describes v0.2.0; RC-only additions are listed in the preview sect
 The approved scope is documented in [the design](docs/plans/2026-09-15-screenshot-editor-design.md).
 The [original requirements](docs/spec/20260915-init-requirement.md) remain the longer-term
 backlog. Live-page annotations/text output, full-page capture, localization, and Web Store
-publication are deferred. Pressure/speed brush controls are part of the rc.2 preview above.
+publication are deferred. Pressure/speed brush controls are part of the RC preview above.
 
 ## Shortcuts
 
@@ -165,7 +167,7 @@ publication are deferred. Pressure/speed brush controls are part of the rc.2 pre
 | Capture visible page                                    | Alt+Shift+V                                 |
 | Select / Arrow / Pen / Rectangle / Text / Redact / Crop | V / A / P / R / T / X / C                   |
 | Step / Magnifier / Blur                                 | S / M / B                                   |
-| Sticky note (rc.2 preview)                              | N                                           |
+| Sticky note (RC preview)                                | N                                           |
 | Straight arrow or square rectangle                      | Hold Shift while drawing                    |
 | Undo / Redo                                             | Ctrl+Z / Ctrl+Shift+Z (Cmd on macOS)        |
 | Copy image                                              | Ctrl+C (Cmd on macOS)                       |

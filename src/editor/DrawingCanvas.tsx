@@ -1,3 +1,4 @@
+import { hitTestArrowLabel, moveArrowLabelBy } from '../core/arrow-label';
 import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react';
 import {
   newObjectBase,
@@ -23,7 +24,7 @@ import {
 } from '../core/geometry';
 import { arrowHandles } from '../core/arrow-handles';
 import { sampleStrokePoint } from '../core/brush';
-import { createSticky, resizeSticky } from '../core/notes';
+import { createSticky, resizeSticky, hitTestShapeLabel, moveShapeLabelBy } from '../core/notes';
 import { objectsInPaintOrder } from '../core/layers';
 import {
   imageHandles,
@@ -55,7 +56,7 @@ interface Props {
 }
 
 interface Gesture {
-  kind: 'draw' | 'move' | 'handle' | 'crop' | 'resize';
+  kind: 'draw' | 'move' | 'handle' | 'crop' | 'resize' | 'label';
   start: Point;
   object?: DrawingObject;
   handle?: ArrowHandle;
@@ -109,7 +110,7 @@ function drawOverlay(
       ctx.stroke();
     });
   }
-  if (selected.type === 'image' || selected.type === 'sticky') {
+  if (selected.type === 'image' || selected.type === 'sticky' || selected.type === 'rectangle') {
     const side = 9 / scale;
     ctx.fillStyle = '#ffffff';
     for (const point of Object.values(imageHandles(selected.rect))) {
@@ -214,7 +215,11 @@ export function DrawingCanvas(props: Props) {
     const sceneBounds = committed.crop ?? { x: 0, y: 0, width, height };
     if (tool === 'select') {
       const selected = committed.objects.find((object) => object.id === selectedId);
-      if (selected?.type === 'image' || selected?.type === 'sticky') {
+      if (
+        selected?.type === 'image' ||
+        selected?.type === 'sticky' ||
+        selected?.type === 'rectangle'
+      ) {
         const handle = hitTestImageHandle(selected.rect, point, 11 / scale);
         if (handle) {
           gesture.current = {
@@ -251,7 +256,13 @@ export function DrawingCanvas(props: Props) {
       select(hit?.id ?? null);
       if (hit)
         gesture.current = {
-          kind: 'move',
+          kind: (
+            hit.type === 'arrow'
+              ? hitTestArrowLabel(hit, point, sceneBounds)
+              : hitTestShapeLabel(hit, point, sceneBounds)
+          )
+            ? 'label'
+            : 'move',
           start: point,
           object: hit,
           doc: committed,
@@ -357,7 +368,18 @@ export function DrawingCanvas(props: Props) {
       next = { ...active.doc, crop: clampRect(rect, width, height) };
     } else if (active.object) {
       let object = active.object;
-      if (active.kind === 'move') {
+      if (active.kind === 'label') {
+        const delta = { x: point.x - active.start.x, y: point.y - active.start.y };
+        const bounds = active.doc.crop ?? { x: 0, y: 0, width, height };
+        object =
+          object.type === 'arrow'
+            ? moveArrowLabelBy(object, delta, bounds)
+            : moveShapeLabelBy(object, delta, bounds);
+      } else if (active.kind === 'resize' && object.type === 'rectangle' && active.imageHandle) {
+        const corners = imageHandles(object.rect);
+        const opposite = { nw: 'se', ne: 'sw', se: 'nw', sw: 'ne' } as const;
+        object = { ...object, rect: normalizeRect(corners[opposite[active.imageHandle]], point) };
+      } else if (active.kind === 'move') {
         object = moveObject(object, { x: point.x - active.start.x, y: point.y - active.start.y });
       } else if (active.kind === 'resize' && object.type === 'image' && active.imageHandle) {
         object = { ...object, rect: resizeImageRect(object.rect, active.imageHandle, point) };

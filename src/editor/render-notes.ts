@@ -1,3 +1,4 @@
+import { drawLabelText } from './render-label';
 import type { DrawingObject, Rect, StickyObject } from '../core/model';
 import { getNoteLayout, NOTE_FONT_FAMILY, stickyTextColor } from '../core/notes';
 
@@ -40,8 +41,7 @@ export function drawShapeNote(
   ctx.globalCompositeOperation = 'source-over';
   ctx.filter = 'none';
   clearShadow(ctx);
-  const color = object.type === 'redact' ? '#ffffff' : object.style.color;
-  drawNoteText(ctx, object, color, bounds, object.type !== 'redact');
+  drawLabelText(ctx, getNoteLayout(object, bounds), object.style.color);
   ctx.restore();
 }
 
@@ -50,7 +50,6 @@ function drawNoteText(
   object: DrawingObject,
   color: string,
   bounds?: Rect,
-  halo = false,
 ): void {
   const { rect, center, lines, fontSize, lineHeight } = getNoteLayout(object, bounds);
   if (!lines.length) return;
@@ -62,14 +61,10 @@ function drawNoteText(
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = color;
-  ctx.strokeStyle = color.toLowerCase() === '#ffffff' ? '#282832' : '#ffffff';
-  ctx.lineWidth = 3;
-  ctx.lineJoin = 'round';
   const textHeight = lines.length * lineHeight;
   for (let index = 0; index < lines.length; index++) {
     const line = lines[index] ?? '';
     const y = center.y - textHeight / 2 + (index + 0.5) * lineHeight;
-    if (halo) ctx.strokeText(line, center.x, y, rect.width);
     ctx.fillText(line, center.x, y, rect.width);
   }
   ctx.restore();

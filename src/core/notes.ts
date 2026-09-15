@@ -1,3 +1,10 @@
+import {
+  getTextLabelLayout,
+  labelFontSize,
+  measureText,
+  wrapText,
+  LABEL_FONT_FAMILY,
+} from './label-layout';
 import type { ImageHandle } from './image-geometry';
 import {
   newObjectBase,
@@ -9,8 +16,7 @@ import {
   type StickyObject,
 } from './model';
 
-export const NOTE_FONT_FAMILY =
-  'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+export const NOTE_FONT_FAMILY = LABEL_FONT_FAMILY;
 
 /** Inline editing and the flattened card must use the same readable foreground. */
 export function stickyTextColor(color: string): string {
@@ -49,7 +55,7 @@ export function withObjectText(object: DrawingObject, value: string): DrawingObj
 
 /** Layout is shared by inline editing and flattened export; truncation never changes stored text. */
 export function getNoteLayout(object: DrawingObject, bounds?: Rect): NoteLayout {
-  if (object.type === 'step') return stepNoteLayout(object, bounds);
+  if (object.type !== 'sticky') return shapeLabelLayout(object, bounds);
   const owner = noteBounds(object);
   const visible = bounds ? intersection(owner, bounds) : owner;
   const padding = object.type === 'sticky' ? 14 : 8;
@@ -69,10 +75,81 @@ export function getNoteLayout(object: DrawingObject, bounds?: Rect): NoteLayout 
   return { rect, center, fontSize, lineHeight, ...wrapped };
 }
 
+/** Shape labels use the same typography and wrapping as arrow labels. */
+function shapeLabelLayout(object: DrawingObject, bounds?: Rect): NoteLayout {
+  const owner = noteBounds(object);
+  const position = object.labelPosition ?? (object.type === 'rectangle' ? 'top' : 'inside');
+  if (object.type === 'step' && object.labelPosition !== 'inside')
+    return stepNoteLayout(object, bounds);
+  return getTextLabelLayout(
+    objectText(object),
+    object.labelFontSize,
+    ({ height }) => ({
+      x: owner.x + owner.width / 2 + (position === 'free' ? (object.labelOffset?.x ?? 0) : 0),
+      y:
+        position === 'top'
+          ? owner.y - 8 - height / 2
+          : position === 'bottom'
+            ? owner.y + owner.height + 8 + height / 2
+            : owner.y + owner.height / 2 + (position === 'free' ? (object.labelOffset?.y ?? 0) : 0),
+    }),
+    bounds,
+  );
+}
+
+export function hitTestShapeLabel(object: DrawingObject, point: Point, bounds?: Rect): boolean {
+  if (['arrow', 'text', 'sticky'].includes(object.type) || !object.note?.trim()) return false;
+  const { rect, lines } = getNoteLayout(object, bounds);
+  return (
+    lines.length > 0 &&
+    point.x >= rect.x &&
+    point.x <= rect.x + rect.width &&
+    point.y >= rect.y &&
+    point.y <= rect.y + rect.height
+  );
+}
+
+export function moveShapeLabelBy<T extends DrawingObject>(
+  object: T,
+  delta: Point,
+  bounds?: Rect,
+): T {
+  if (!delta.x && !delta.y) return object;
+  const before = getNoteLayout(object, bounds);
+  const owner = noteBounds(object);
+  return {
+    ...object,
+    labelPosition: 'free',
+    labelOffset: {
+      x: before.center.x + delta.x - owner.x - owner.width / 2,
+      y: before.center.y + delta.y - owner.y - owner.height / 2,
+    },
+  };
+}
+
+export function withLabelPosition<T extends DrawingObject>(
+  object: T,
+  position: NonNullable<DrawingObject['labelPosition']>,
+  bounds?: Rect,
+): T {
+  if (position !== 'free')
+    return { ...object, labelPosition: position, labelOffset: { x: 0, y: 0 } };
+  const before = getNoteLayout(object, bounds);
+  const owner = noteBounds(object);
+  return {
+    ...object,
+    labelPosition: position,
+    labelOffset: {
+      x: before.center.x - owner.x - owner.width / 2,
+      y: before.center.y - owner.y - owner.height / 2,
+    },
+  };
+}
+
 /** Prefer below the numeral, or use clear space above; never clamp visible text onto its circle. */
 function stepNoteLayout(object: StepObject, bounds?: Rect): NoteLayout {
-  const fontSize = 20;
-  const lineHeight = 26;
+  const fontSize = labelFontSize(object.labelFontSize);
+  const lineHeight = Math.ceil(fontSize * 1.3);
   const width = Math.min(200, Math.max(0, bounds?.width ?? 200));
   const maximumHeight = Math.min(100, Math.max(0, bounds?.height ?? 100));
   const text = objectText(object).trim();
@@ -92,14 +169,24 @@ function stepNoteLayout(object: StepObject, bounds?: Rect): NoteLayout {
   const belowSpace = Math.min(maximumHeight, Math.max(0, bottom - belowStart));
   const aboveSpace = Math.min(maximumHeight, Math.max(0, aboveEnd - top));
   const below =
-    belowSpace >= preferredHeight || (aboveSpace < preferredHeight && belowSpace >= aboveSpace);
-  const availableHeight = below ? belowSpace : aboveSpace;
+    object.labelPosition === 'top'
+      ? false
+      : object.labelPosition === 'bottom'
+        ? true
+        : belowSpace >= preferredHeight ||
+          (aboveSpace < preferredHeight && belowSpace >= aboveSpace);
+  const free = object.labelPosition === 'free';
+  const availableHeight = free ? maximumHeight : below ? belowSpace : aboveSpace;
   const wrapped =
     availableHeight >= preferredHeight ? preferred : wrapWithinHeight(availableHeight);
   // An empty note still offers a full line for the inline editor.
   const height = Math.min(availableHeight, Math.max(1, wrapped.lines.length) * lineHeight);
-  let x = object.center.x - width / 2;
-  let y = below ? belowStart : aboveEnd - height;
+  let x = object.center.x - width / 2 + (free ? (object.labelOffset?.x ?? 0) : 0);
+  let y = free
+    ? object.center.y + (object.labelOffset?.y ?? 0) - height / 2
+    : below
+      ? belowStart
+      : aboveEnd - height;
   if (bounds) {
     x = Math.max(bounds.x, Math.min(bounds.x + bounds.width - width, x));
     // Nonempty lines already fit their clear side; this only bounds empty/offscreen editor anchors.
@@ -228,83 +315,4 @@ function intersection(rect: Rect, bounds: Rect): Rect {
     width: Math.max(0, Math.min(rect.x + rect.width, bounds.x + bounds.width) - x),
     height: Math.max(0, Math.min(rect.y + rect.height, bounds.y + bounds.height) - y),
   };
-}
-
-let measuringContext: CanvasRenderingContext2D | null | undefined;
-
-function measureText(text: string, fontSize: number): number {
-  if (measuringContext === undefined && typeof document !== 'undefined') {
-    measuringContext = document.createElement('canvas').getContext('2d');
-  }
-  if (measuringContext) {
-    measuringContext.font = `500 ${fontSize}px ${NOTE_FONT_FAMILY}`;
-    return measuringContext.measureText(text).width;
-  }
-  // Unit-test geometry uses a conservative estimate; real preview/export measure the same font.
-  return Array.from(text).reduce(
-    (width, character) =>
-      width +
-      fontSize *
-        (/\s/u.test(character)
-          ? 0.33
-          : /[ilI.,'!:;|]/u.test(character)
-            ? 0.3
-            : /[MW@#%]/u.test(character)
-              ? 0.9
-              : (character.codePointAt(0) ?? 0) > 0x024f
-                ? 1
-                : 0.6),
-    0,
-  );
-}
-
-function wrapText(
-  text: string,
-  width: number,
-  maxLines: number,
-  measure: (text: string) => number,
-): { lines: string[]; truncated: boolean } {
-  if (!text) return { lines: [], truncated: false };
-  const lines: string[] = [];
-  let forcedTruncation = false;
-  outer: for (const paragraph of text.split(/\r?\n/u)) {
-    let line = '';
-    for (const word of paragraph.trim().split(/\s+/u)) {
-      if (!word) continue;
-      const candidate = line ? `${line} ${word}` : word;
-      if (measure(candidate) <= width) {
-        line = candidate;
-        continue;
-      }
-      if (line) {
-        lines.push(line);
-        line = '';
-        if (lines.length > maxLines) break outer;
-      }
-      for (const character of Array.from(word)) {
-        if (measure(line + character) > width) {
-          if (!line) {
-            forcedTruncation = true;
-            line = '…';
-            break;
-          }
-          lines.push(line);
-          line = '';
-          if (lines.length > maxLines) break outer;
-        }
-        line += character;
-      }
-    }
-    lines.push(line);
-    if (lines.length > maxLines) break;
-  }
-  const truncated = forcedTruncation || lines.length > maxLines;
-  const visible = lines.slice(0, maxLines);
-  if (truncated && visible.length) {
-    const index = visible.length - 1;
-    const characters = Array.from(visible[index] ?? '');
-    while (characters.length && measure(`${characters.join('')}…`) > width) characters.pop();
-    visible[index] = `${characters.join('').trimEnd()}…`;
-  }
-  return { lines: visible, truncated };
 }

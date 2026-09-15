@@ -1,5 +1,5 @@
 import type { ArrowHandle, ArrowObject, DrawingObject, Point, Rect } from './model';
-import { getArrowLabelLayout } from './arrow-label';
+import { getArrowLabelLayout, moveArrowLabelBy } from './arrow-label';
 import { arrowControl } from './arrows';
 import { getNoteLayout } from './notes';
 import { penOutline } from './brush';
@@ -27,7 +27,7 @@ export function autoControl(start: Point, end: Point, straight = false): Point {
 }
 
 export function getArrowLabelPosition(arrow: ArrowObject): Point {
-  return quadraticPoint(arrow.start, arrowControl(arrow), arrow.end, 0.5);
+  return getArrowLabelLayout(arrow).center;
 }
 
 export function textDimensions(text: string, fontSize: number): { width: number; height: number } {
@@ -95,7 +95,7 @@ export function moveArrowHandle(
 ): ArrowObject {
   if (handle === 'label') {
     const middle = getArrowLabelPosition(arrow);
-    return moveObject(arrow, { x: point.x - middle.x, y: point.y - middle.y });
+    return moveArrowLabelBy(arrow, { x: point.x - middle.x, y: point.y - middle.y });
   }
   if (handle === 'control') return { ...arrow, control: { ...point } };
   // Preserve the bend relative to the chord when either endpoint is dragged.
@@ -196,7 +196,7 @@ export function hitTestObject(
     case 'blur':
     case 'image':
     case 'sticky':
-      return true;
+      return contains(expand(baseObjectBounds(object, sceneBounds), tolerance), point);
     case 'step':
     case 'magnifier':
       return distance(object.center, point) <= object.radius + padding;

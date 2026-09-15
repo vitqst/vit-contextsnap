@@ -25,7 +25,7 @@ export interface ObjectStyle {
   color: string;
   width: number;
   sketch: boolean;
-  /** Only arrows (including their labels) and sticky cards render shadows. */
+  /** Only arrow strokes and sticky cards render shadows. */
   shadow?: boolean;
 }
 
@@ -34,6 +34,10 @@ interface ObjectBase {
   seed: number;
   style: ObjectStyle;
   note?: string;
+  labelFontSize?: number;
+  labelPosition?: 'top' | 'bottom' | 'inside' | 'free';
+  /** Source-pixel offset from the owner anchor, preserved on move and resize. */
+  labelOffset?: Point;
 }
 
 export interface ArrowObject extends ObjectBase {
@@ -45,7 +49,7 @@ export interface ArrowObject extends ObjectBase {
   label: string;
   /** Label typography is independent of the arrow's stroke thickness. Defaults to 20. */
   labelFontSize?: number;
-  /** Legacy offset retained for compatibility; attached labels ignore it. */
+  /** Source-pixel offset from the default tail label position. */
   labelOffset: Point;
 }
 

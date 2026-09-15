@@ -253,8 +253,8 @@ test('long labels stay bounded and move with their arrow near an image edge', as
   await label.blur();
   expect(
     (await downloadPng(page)).equals(arrowOnly),
-    'Moving an attached label must move its arrow geometry too',
-  ).toBe(false);
+    'Moving a label preserves its arrow geometry',
+  ).toBe(true);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await label.fill('');

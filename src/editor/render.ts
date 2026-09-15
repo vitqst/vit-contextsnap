@@ -1,5 +1,6 @@
+import { drawLabelText } from './render-label';
 import rough from 'roughjs';
-import { ARROW_LABEL_FONT_FAMILY, getArrowLabelLayout } from '../core/arrow-label';
+import { getArrowLabelLayout } from '../core/arrow-label';
 import { arrowHeadPoints } from '../core/geometry';
 import { arrowControl } from '../core/arrows';
 import { penOutline } from '../core/brush';
@@ -139,38 +140,7 @@ function drawArrowLabel(
   arrow: ArrowObject,
   sceneBounds?: Rect,
 ): void {
-  const { rect, center, fontSize, lineHeight, lines } = getArrowLabelLayout(arrow, sceneBounds);
-  if (!lines.length) return;
-  const control = arrowControl(arrow);
-  const anchor = {
-    x: (arrow.start.x + 2 * control.x + arrow.end.x) / 4,
-    y: (arrow.start.y + 2 * control.y + arrow.end.y) / 4,
-  };
-  // A crop-clamped label keeps a visible connection to its owning arrow.
-  if (
-    Math.abs(anchor.x - center.x) > rect.width / 2 ||
-    Math.abs(anchor.y - center.y) > rect.height / 2
-  ) {
-    ctx.beginPath();
-    ctx.moveTo(anchor.x, anchor.y);
-    ctx.lineTo(center.x, center.y);
-    ctx.stroke();
-  }
-  ctx.font = `500 ${fontSize}px ${ARROW_LABEL_FONT_FAMILY}`;
-  ctx.textBaseline = 'middle';
-  ctx.textAlign = 'center';
-  const height = lines.length * lineHeight;
-  ctx.fillStyle = arrow.style.color.toLowerCase() === '#ffffff' ? '#282832' : '#ffffff';
-  ctx.beginPath();
-  ctx.roundRect(rect.x, rect.y, rect.width, rect.height, 3);
-  ctx.fill();
-  ctx.save();
-  ctx.clip();
-  ctx.fillStyle = arrow.style.color;
-  for (let index = 0; index < lines.length; index++) {
-    ctx.fillText(lines[index] ?? '', center.x, center.y - height / 2 + lineHeight * (index + 0.5));
-  }
-  ctx.restore();
+  drawLabelText(ctx, getArrowLabelLayout(arrow, sceneBounds), arrow.style.color);
 }
 
 function drawStep(ctx: CanvasRenderingContext2D, object: StepObject): void {
