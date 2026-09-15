@@ -28,7 +28,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: sudo apt-get update && sudo apt-get install -y xvfb xdotool
       - name: Chrome editor and capture tests
-        run: xvfb-run -a sh -c 'CONTEXTSNAP_NATIVE_INPUT=1 CONTEXTSNAP_HEADED=1 CONTEXTSNAP_TEST_DISPLAY="$DISPLAY" npm run test:e2e'
+        run: xvfb-run -a -s '-screen 0 1920x1200x24' sh -c 'CONTEXTSNAP_NATIVE_INPUT=1 CONTEXTSNAP_HEADED=1 CONTEXTSNAP_TEST_DISPLAY="$DISPLAY" npm run test:e2e'
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

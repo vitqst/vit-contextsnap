@@ -27,13 +27,20 @@ with `Xvfb`, `xvfb-run`, and `xdotool` installed, run the complete suite in a fr
 display:
 
 ```sh
-xvfb-run -a sh -c 'CONTEXTSNAP_NATIVE_INPUT=1 CONTEXTSNAP_HEADED=1 CONTEXTSNAP_TEST_DISPLAY="$DISPLAY" npx playwright test'
+xvfb-run -a -s '-screen 0 1920x1200x24' sh -c 'CONTEXTSNAP_NATIVE_INPUT=1 CONTEXTSNAP_HEADED=1 CONTEXTSNAP_TEST_DISPLAY="$DISPLAY" npm run test:e2e'
 ```
 
 This sends native shortcuts only to the fixture window inside that virtual display.
 The harness first aligns Chrome's native tab dimensions with the requested viewport;
 Playwright's window-decoration estimates can differ from bare Xvfb, so checking only the
 page's emulated DOM dimensions is insufficient for a native screenshot test.
+The explicit Xvfb screen leaves room for the 1440 × 1000 viewport and browser UI.
+Before sending the real shortcut, the harness waits up to five seconds for a successful
+compositor readback. It retries only the known
+`Protocol error (Page.captureScreenshot): Unable to capture screenshot` readiness error;
+unrelated errors fail immediately. This probe is synchronization, not the extension's
+captured image: the tests still inspect PNGs produced by the real capture/export path.
+Whole-test retries remain disabled.
 It exercises the production capture APIs and permissions without changing the manifest,
 granting extra host access, or replacing Chrome APIs with mocks. Use this command for
 full capture verification; `npm run test:e2e` alone does not verify capture activation.

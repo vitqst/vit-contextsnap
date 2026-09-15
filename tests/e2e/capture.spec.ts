@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { Page, Worker } from '@playwright/test';
 import { test, expect, downloadPng, inspectPng } from './extension';
+import { waitForCaptureSurface } from '../helpers/capture-surface';
 
 const run = promisify(execFile);
 const nativeInputEnabled =
@@ -32,7 +33,7 @@ async function invokeCapture(page: Page, worker: Worker, commandName: string): P
   await alignNativeViewport(page, worker);
   // Native capture can fail before Chrome's first compositor readback on a cold CI browser.
   // Wait for a rendered surface, then exercise the real shortcut and extension PNG below.
-  await page.screenshot({ timeout: 5_000 });
+  await waitForCaptureSurface((timeout) => page.screenshot({ timeout }));
   await run('xdotool', ['key', '--clearmodifiers', shortcut!.toLowerCase()]);
 }
 
