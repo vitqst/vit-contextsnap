@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Disable generated JavaScript module preload hints in extension pages to avoid Chrome's
+  cross-world resource mismatch and unused-preload warnings. Normal module imports and
+  stylesheets remain bundled locally; no permissions change.
+
 ## 0.2.0-rc.1 — Prerelease preview
 
 This RC label identifies a newer preview after public v0.2.0. It does not

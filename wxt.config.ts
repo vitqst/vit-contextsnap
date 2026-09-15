@@ -38,5 +38,12 @@ export default defineConfig({
       },
     },
   },
-  vite: () => ({ build: { sourcemap: false } }),
+  vite: () => ({
+    build: {
+      sourcemap: false,
+      // Chrome can reject extension module preloads as cross-world mismatches.
+      // Load bundled chunks through normal imports instead of speculative hints.
+      modulePreload: false,
+    },
+  }),
 });
