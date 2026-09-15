@@ -4,23 +4,58 @@ A Chrome extension for turning screenshots into clear visual feedback. Capture a
 draw expressive arrows, and copy the finished image into a chat, issue, or document.
 All processing and image storage stay on your device.
 
-## Install in Chrome
+[Download for Chrome — v0.2.0](https://github.com/vitqst/vit-contextsnap/releases/download/v0.2.0/contextsnap-0.2.0-chrome.zip)
+· [Release notes](https://github.com/vitqst/vit-contextsnap/releases/tag/v0.2.0)
+· [MIT license](LICENSE)
 
-```sh
-git clone https://github.com/vitqst/vit-contextsnap.git
-cd vit-contextsnap
-npm ci
-npm run build
-```
+![ContextSnap editor with a labeled curved arrow and numbered steps on a fictional checkout page](docs/images/editor-overview.png)
 
-1. Open `chrome://extensions` and enable **Developer mode**.
-2. Click **Load unpacked** and select this project's `.output/chrome-mv3` directory.
-3. Pin ContextSnap in the extensions menu, open a website, then click its icon.
-4. Choose **Select an area** or **Visible page**. The editor opens in a new tab.
+## Install in Chrome — no build needed
 
-No server, API key, account, or permanent access to websites is required. Use a recent Node.js
-release (22.12+, 24+, or 26+) and Chrome 120 or later. The current package is Chrome MV3;
-other Chromium browsers are not yet independently tested.
+1. Download [contextsnap-0.2.0-chrome.zip](https://github.com/vitqst/vit-contextsnap/releases/download/v0.2.0/contextsnap-0.2.0-chrome.zip).
+   Use this extension ZIP, not GitHub's **Source code** archive.
+2. **Unzip** it into a folder you will keep on your computer.
+3. Open `chrome://extensions` and enable **Developer mode**.
+4. Click **Load unpacked** and select the extracted folder containing `manifest.json`.
+5. Pin ContextSnap, open a website, then choose **Select an area** or **Visible page**.
+   The screenshot editor opens in a new tab.
+
+Requires Chrome 120 or later. No Node.js, npm, server, API key, or account is needed.
+This is a manually installed Chrome MV3 extension, not a Chrome Web Store listing.
+Other Chromium browsers are not yet independently tested. A [SHA-256 checksum](https://github.com/vitqst/vit-contextsnap/releases/download/v0.2.0/SHA256SUMS)
+is included with the release to verify the ZIP.
+
+## See the tools in action
+
+### Point clearly with arrows and steps
+
+The editor above shows a curved arrow with an editable label and numbered **1 → 2 → 3**
+steps. Choose a sketch or clean stroke, drag endpoints to aim, bend the curve, and move
+the label independently. Labels wrap instead of running across the screenshot.
+
+### Enlarge a detail with a circular magnifier
+
+Place a lens on the screenshot, move it to another detail, and adjust its size and
+magnification. The enlarged circle is included in your exported image.
+
+![Circular screenshot magnifier enlarging a checkout button, with size and magnification controls visible](docs/images/magnifier.png)
+
+### Blur distractions or redact private details
+
+Adjust blur strength for less important content. Use **solid Redact** for secrets:
+blur is not secure redaction. Magnifiers respect both effects and cannot reveal masked pixels.
+
+![Blur softening a fictional contact address and solid redaction covering a demo reference, with blur strength controls visible](docs/images/privacy-tools.png)
+
+### Copy, paste, and share
+
+Click **Copy image**, then paste the flattened PNG into a chat, issue, or document.
+**Download PNG** is always available too. Selection handles and editor controls are
+not included in the exported image; flattened exports appear in local Recent history.
+
+![ContextSnap confirming that the annotated image was copied and is ready to paste](docs/images/copy-export.png)
+
+These are screenshots of the actual extension using fictional demo content.
 
 ## Editor tools
 
@@ -97,6 +132,17 @@ conflict; change extension shortcuts at `chrome://extensions/shortcuts`.
 
 ## Development and verification
 
+To build from source, use Node.js 22.12+, 24, or 26+:
+
+```sh
+git clone https://github.com/vitqst/vit-contextsnap.git
+cd vit-contextsnap
+npm ci
+npm run build
+```
+
+Load `.output/chrome-mv3` at `chrome://extensions` using **Load unpacked**.
+
 ```sh
 npm run dev           # WXT development extension
 npm run check         # TypeScript, ESLint, formatting, unit tests, production build
@@ -133,6 +179,9 @@ pixels in the browser. Do not put Chrome API calls inside geometry or renderer m
 
 To update the toolbar artwork, edit `public/icon.svg` then run
 `node scripts/generate-icons.mjs` (requires the Playwright Chromium installed above).
+To refresh the README screenshots after a build, run `node scripts/capture-readme.mjs`.
+It operates the real editor in a disposable browser using a fictional local fixture;
+the generated PNGs live in `docs/images/` and are not included in the extension ZIP.
 
 ## Limits
 
