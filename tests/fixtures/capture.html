@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ContextSnap capture fixture</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #f8fafc;
+        font:
+          18px system-ui,
+          sans-serif;
+        color: #172033;
+      }
+      header {
+        padding: 28px 48px;
+        background: #172033;
+        color: white;
+      }
+      main {
+        width: 960px;
+        margin: 40px auto;
+      }
+      .cards {
+        display: flex;
+        gap: 24px;
+      }
+      article {
+        flex: 1;
+        padding: 28px;
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+        background: white;
+      }
+      h1 {
+        margin: 0 0 12px;
+      }
+      .sample {
+        margin-top: 32px;
+        height: 160px;
+        background: #2563eb;
+        color: white;
+        padding: 24px;
+      }
+      button {
+        border: 0;
+        padding: 12px 24px;
+        background: #2563eb;
+        color: white;
+        font: inherit;
+      }
+      footer {
+        margin-top: 900px;
+        padding: 48px;
+      }
+      #page-modal {
+        position: fixed;
+        top: 120px;
+        left: 20px;
+        width: 200px;
+        margin: 0;
+        padding: 20px;
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+      }
+      #page-modal::backdrop {
+        background: transparent;
+      }
+    </style>
+  </head>
+  <body>
+    <header>ContextSnap / browser capture fixture</header>
+    <main>
+      <h1>Checkout review</h1>
+      <p>A local page with strict script CSP and predictable screenshot colors.</p>
+      <section class="cards">
+        <article>
+          <h2>Starter</h2>
+          <p>One project</p>
+          <button>Choose Starter</button>
+        </article>
+        <article>
+          <h2>Team</h2>
+          <p>Unlimited projects</p>
+          <button>Choose Team</button>
+        </article>
+      </section>
+      <div class="sample">Area capture target</div>
+    </main>
+    <footer>Scrollable content for viewport checks.</footer>
+    <dialog id="page-modal" aria-label="Checkout modal">
+      <p>Checkout confirmation</p>
+      <button>Continue</button>
+    </dialog>
+  </body>
+</html>

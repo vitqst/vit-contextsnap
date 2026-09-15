@@ -1,0 +1,243 @@
+body {
+  width: 348px;
+  background: #ffffff;
+}
+.popup {
+  width: 348px;
+}
+.popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 21px 22px 17px;
+}
+.popup-header .brand {
+  font-size: 19px;
+}
+.version-badge {
+  font-size: 9px;
+  color: #b2adbc;
+  padding: 3px 6px;
+  background: #f7f5fa;
+  border-radius: 5px;
+}
+.popup main {
+  padding: 0 22px;
+}
+.popup-intro {
+  margin: 10px 0 22px;
+}
+.popup-intro h1 {
+  font-size: 18px;
+  font-weight: 570;
+  letter-spacing: -0.5px;
+  margin: 0 0 6px;
+}
+.popup-intro p {
+  margin: 0;
+  font-size: 12px;
+  color: #a19aa9;
+}
+.capture-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.capture-card {
+  padding: 15px 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: white;
+  border: 1px solid #e9e5ef;
+  border-radius: 10px;
+  text-align: left;
+}
+.capture-card:hover:not(:disabled) {
+  background: #f9f7ff;
+  border-color: #c7bee6;
+}
+.capture-card.selected-area {
+  background: #f4f1fd;
+  border-color: #e6dff7;
+}
+.capture-card.selected-area:hover:not(:disabled) {
+  background: #ece7fb;
+}
+.capture-icon {
+  color: #9488b5;
+}
+.selected-area .capture-icon {
+  color: var(--accent);
+}
+.capture-label {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 5px;
+}
+.capture-label strong {
+  font-size: 12px;
+  font-weight: 560;
+}
+.capture-label > span {
+  font-size: 10px;
+  color: #a59bb3;
+}
+.capture-shortcut {
+  color: #b7afc3;
+  font-size: 9px;
+  white-space: nowrap;
+}
+.open-editor {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  background: none;
+  border: none;
+  width: 100%;
+  color: #92899f;
+  padding: 17px 0 22px;
+  font-size: 11px;
+}
+.open-editor:hover {
+  color: var(--accent);
+}
+.open-editor svg:last-child {
+  margin-left: 6px;
+  color: #b4abbf;
+}
+.recent-section {
+  padding: 17px 0 19px;
+  border-top: 1px solid #f0edf4;
+}
+.recent-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 8px;
+  letter-spacing: 1.4px;
+  color: #a49ab3;
+  font-weight: 550;
+}
+.recent-heading button {
+  border: none;
+  background: none;
+  color: #9d92ac;
+  font-size: 9px;
+}
+.recent-empty {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 21px 0 7px;
+  color: #bcb4c8;
+}
+.recent-empty > span {
+  font-size: 10px;
+  line-height: 1.7;
+}
+.recent-list {
+  margin-top: 10px;
+}
+.recent-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.recent-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+  padding: 7px 0;
+  border: none;
+  text-align: left;
+  background: none;
+}
+.recent-item img {
+  width: 51px;
+  height: 34px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+}
+.recent-item > span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.recent-item strong {
+  font-size: 10px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.recent-item small {
+  font-size: 8px;
+  color: #aaa0b8;
+}
+.recent-row .icon-button {
+  color: #b6acc3;
+  width: 26px;
+  height: 28px;
+}
+.popup-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 22px;
+  background: #faf9fc;
+  border-top: 1px solid #f0ecf5;
+  font-size: 9px;
+  color: #b1a7be;
+}
+.popup-footer > span {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+.popup-footer > span svg:last-child {
+  color: #8cae92;
+}
+.popup-footer button {
+  background: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #a89cb6;
+  font-size: 9px;
+  padding: 0;
+}
+.blocked-note {
+  background: #f8f6fc;
+  color: #8f839f;
+  font-size: 11px;
+  line-height: 1.6;
+  padding: 10px;
+  border-radius: 8px;
+}
+.clear-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  background: #fff5ef;
+  color: #9c694d;
+  padding: 8px;
+  margin-top: 10px;
+  border-radius: 6px;
+}
+.clear-confirm button {
+  border: none;
+  border-radius: 4px;
+  padding: 5px;
+  background: #fae2d6;
+  color: #9c5a41;
+  font-size: 9px;
+}
