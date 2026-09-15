@@ -30,6 +30,9 @@ async function invokeCapture(page: Page, worker: Worker, commandName: string): P
     .toBe(1);
   await run('xdotool', ['windowfocus', '--sync', windows[0]!]);
   await alignNativeViewport(page, worker);
+  // Native capture can fail before Chrome's first compositor readback on a cold CI browser.
+  // Wait for a rendered surface, then exercise the real shortcut and extension PNG below.
+  await page.screenshot({ timeout: 5_000 });
   await run('xdotool', ['key', '--clearmodifiers', shortcut!.toLowerCase()]);
 }
 
