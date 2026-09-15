@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.2.0-rc.1 — Prerelease preview
+
+This RC label identifies a newer preview after public v0.2.0. It does not
+replace that stable release or become the default download. Chrome uses numeric version
+`0.2.0.1` and display name `0.2.0-rc.1`.
 
 - Back to website preserves the editor tab and undo history; unavailable or changed source
   tabs fall back to the saved HTTP(S) URL. Recent exports always reopen the saved URL.
@@ -10,6 +14,12 @@
   drawings and are included in blur, magnifier, redaction, clipboard, and PNG export.
 - Bound decoded image assets per session and share them across duplicate/history objects.
 - No new extension permissions, external services, or dependencies.
+- Native capture tests wait up to five seconds for a readable Chrome surface before
+  sending the actual shortcut. Only the known surface-unavailable protocol error is
+  retried; unrelated errors fail immediately and whole tests are not retried.
+- Use an explicit 1920 × 1200, 24-bit Xvfb screen for native browser verification.
+
+See [preview notes and installation instructions](docs/releases/0.2.0-rc.1.md).
 
 ## 0.2.0 — First public release
 

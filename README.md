@@ -57,9 +57,17 @@ not included in the exported image; flattened exports appear in local Recent his
 
 These are screenshots of the actual extension using fictional demo content.
 
-### Next update — available when building this branch
+### Optional preview — v0.2.0-rc.1
 
-The downloadable **v0.2.0 ZIP does not include these unreleased additions**:
+The stable **v0.2.0 download above remains the default**. The optional **v0.2.0-rc.1**
+prerelease previews newer changes; it does not replace the existing stable release.
+
+[Preview ZIP](https://github.com/vitqst/vit-contextsnap/releases/download/v0.2.0-rc.1/contextsnap-0.2.0-rc.1-chrome.zip)
+· [Preview notes](docs/releases/0.2.0-rc.1.md)
+· [Preview SHA256SUMS](https://github.com/vitqst/vit-contextsnap/releases/download/v0.2.0-rc.1/SHA256SUMS)
+
+Use the same unzip and **Load unpacked** instructions above. These additions are in
+the RC preview, **not the stable v0.2.0 ZIP**:
 
 - **Back to website** keeps your editor and undo history open. It returns to the original
   capture tab when that tab still shows the captured URL; otherwise it opens the saved URL.
@@ -75,7 +83,10 @@ Paste inside text fields remains ordinary text editing. **Open another image** s
 replaces the background and asks before discarding unexported work. With no screenshot
 open, paste/drop opens an image as the background.
 
-![Unreleased image-layer workflow with an imported icon, proportional resize controls, and a labeled arrow](docs/images/image-layers.png)
+![v0.2.0-rc.1 preview image-layer workflow with an imported icon, proportional resize controls, and a labeled arrow](docs/images/image-layers.png)
+
+Chrome uses internal version `0.2.0.1` and displays `0.2.0-rc.1`. The numeric version
+orders this preview after the existing stable build without changing the stable release.
 
 ## Editor tools
 
@@ -95,7 +106,7 @@ open, paste/drop opens an image as the background.
 - Recolor, adjust thickness, move, duplicate, or delete selected objects.
 - Copy flattened PNGs directly to the clipboard; download PNG as a fallback.
 - Import/paste/drop PNG, JPEG, or WebP files. Importing a new image asks before replacing
-  work that has not been copied or downloaded in v0.2.0; see the unreleased additions above
+  work that has not been copied or downloaded in v0.2.0; see the RC preview above
   for the new layer workflow.
 - Recent exports in the popup, with individual removal and Clear all.
 
@@ -148,7 +159,7 @@ conflict; change extension shortcuts at `chrome://extensions/shortcuts`.
   magnifiers, so adding a lens cannot uncover masked source details.
 - Copy and Download export the current canvas crop without selection handles or UI.
   Closing/reloading the editor discards its editable session; copy or download first.
-- In the unreleased layer workflow, inserted images stay in memory for the current
+- In the RC preview's layer workflow, inserted images stay in memory for the current
   session, including undo/redo. Duplicates share the same decoded asset. Replacing the
   screenshot or closing the editor releases those assets; Recent still stores only flattened PNGs.
 - Back to website is an explicit navigation action. It may open the locally saved full URL,
@@ -209,7 +220,7 @@ To update the toolbar artwork, edit `public/icon.svg` then run
 To refresh the README screenshots after a build, run `node scripts/capture-readme.mjs`.
 It operates the real editor in a disposable browser using a fictional local fixture;
 the generated PNGs live in `docs/images/` and are not included in the extension ZIP.
-Use `node scripts/capture-readme.mjs --image-layers` to refresh only the unreleased
+Use `node scripts/capture-readme.mjs --image-layers` to refresh only the RC preview's
 image-layer example without replacing the v0.2.0 screenshots.
 
 ## Limits
@@ -219,7 +230,7 @@ Web Store, and file URLs show an explicit unsupported message. Images are limite
 32 megapixels and 16,384 pixels per side. Imported files are limited to 50 MB.
 Very large or corrupt images report errors. Clipboard failures leave the editor usable
 with Download PNG available. Local editing is intended for desktop-sized windows.
-The unreleased image-layer workflow allows 20 MB per inserted file and 16 megapixels of
+The RC preview's image-layer workflow allows 20 MB per inserted file and 16 megapixels of
 inserted assets per session, including undo history. Deleting a layer keeps its asset available
 for undo; start a new screenshot to release the budget. SVG, image URL fetching, and
 editable-layer persistence are not supported. Animated PNG/WebP inputs become a single still frame.
