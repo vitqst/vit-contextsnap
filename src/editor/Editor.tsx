@@ -20,11 +20,15 @@ import {
   type ObjectStyle,
   type Point,
   type Tool,
+  type BrushSettings,
 } from '../core/model';
 import { moveObject } from '../core/geometry';
 import { placeImage } from '../core/image-geometry';
 import { canReorderObject, reorderObject } from '../core/layers';
 import { getArrowLabelLayout } from '../core/arrow-label';
+import { arrowMode as getArrowMode, withArrowMode } from '../core/arrows';
+import { DEFAULT_BRUSH, normalizeBrush } from '../core/brush';
+import { getNoteLayout, objectText, stickyTextColor, withObjectText } from '../core/notes';
 import { copyImage, downloadImage, exportFilename, flattenImage, loadImage } from '../export/image';
 import { listRecent, saveRecent, takeCapture } from '../platform/storage';
 import type { CaptureRecord } from '../platform/types';
@@ -45,6 +49,7 @@ const HINTS: Record<Tool, string> = {
   pen: 'Draw freely · Pen pressure supported',
   rectangle: 'Drag to frame a detail · Hold Shift for a square',
   text: 'Click anywhere on the screenshot to add text',
+  sticky: 'Click or drag to place a note · Double-click to edit · Drag a corner to resize',
   redact: 'Drag over private details to cover them permanently on export',
   step: 'Click to add numbered steps · V to select and move them',
   magnifier: 'Click for a circular lens · Drag from its center to choose the size',
@@ -70,6 +75,13 @@ export function Editor() {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [tool, setTool] = useState<Tool>('arrow');
   const [style, setStyle] = useState<ObjectStyle>(DEFAULT_STYLE);
+  const [stickyStyle, setStickyStyle] = useState<ObjectStyle>({
+    ...DEFAULT_STYLE,
+    color: '#ffe58f',
+    shadow: true,
+  });
+  const [arrowMode, setArrowMode] = useState<'straight' | 'curved'>('curved');
+  const [brush, setBrush] = useState<BrushSettings>(DEFAULT_BRUSH);
   const [zoom, setZoom] = useState<number | null>(null);
   const [fitScale, setFitScale] = useState(1);
   const [editing, setEditing] = useState<EditingText | null>(null);
@@ -93,14 +105,7 @@ export function Editor() {
   const navigationPending = useRef(false);
   const selected = state.doc.objects.find((object) => object.id === state.selectedId);
   const scale = zoom ?? fitScale;
-  const hasTextDraft =
-    !!editing &&
-    editing.value !==
-      (editing.object.type === 'arrow'
-        ? editing.object.label
-        : editing.object.type === 'text'
-          ? editing.object.text
-          : '');
+  const hasTextDraft = !!editing && editing.value !== objectText(editing.object);
   const hasUnsavedWork = !!image && (state.committed !== exportedDocument || hasTextDraft);
 
   const openCapture = useCallback(
@@ -215,7 +220,12 @@ export function Editor() {
           saved.width <= 16 &&
           typeof saved.sketch === 'boolean'
         )
-          setStyle({ color: saved.color, width: saved.width, sketch: saved.sketch });
+          setStyle({
+            color: saved.color,
+            width: saved.width,
+            sketch: saved.sketch,
+            shadow: 'shadow' in saved && typeof saved.shadow === 'boolean' ? saved.shadow : true,
+          });
       })
       .catch(() => {
         /* Defaults still work when settings are unavailable. */
@@ -280,6 +290,11 @@ export function Editor() {
   }
 
   function changeStyle(change: Partial<ObjectStyle>) {
+    if (selected?.type === 'sticky' || (!selected && tool === 'sticky')) {
+      setStickyStyle((current) => ({ ...current, ...change }));
+      if (selected) updateObject({ ...selected, style: { ...selected.style, ...change } });
+      return;
+    }
     const next = { ...style, ...change };
     setStyle(next);
     if (selected) updateObject({ ...selected, style: { ...selected.style, ...change } });
@@ -377,7 +392,7 @@ export function Editor() {
   function startText(object: DrawingObject) {
     setEditing({
       object,
-      value: object.type === 'arrow' ? object.label : object.type === 'text' ? object.text : '',
+      value: objectText(object),
     });
   }
 
@@ -385,15 +400,11 @@ export function Editor() {
     if (!editing) return;
     const value = editing.value.trim();
     const object = editing.object;
-    const next: DrawingObject =
-      object.type === 'arrow'
-        ? { ...object, label: value }
-        : object.type === 'text'
-          ? { ...object, text: value }
-          : object;
+    const next = withObjectText(object, value);
     const existing = state.committed.objects.some((item) => item.id === next.id);
-    if (existing) updateObject(next);
-    else if (value)
+    if (existing) {
+      if (objectText(next) !== objectText(object)) updateObject(next);
+    } else if (value)
       state.commit({ ...state.committed, objects: [...state.committed.objects, next] });
     setEditing(null);
     state.select(value || existing ? next.id : null);
@@ -496,6 +507,7 @@ export function Editor() {
           p: 'pen',
           r: 'rectangle',
           t: 'text',
+          n: 'sticky',
           x: 'redact',
           c: 'crop',
           s: 'step',
@@ -550,7 +562,25 @@ export function Editor() {
         ).rect
       : editing?.object.type === 'text'
         ? editing.object.position
-        : null;
+        : editing
+          ? getNoteLayout(
+              withObjectText(editing.object, editing.value || 'Add a note…'),
+              state.doc.crop ??
+                (image
+                  ? { x: 0, y: 0, width: image.naturalWidth, height: image.naturalHeight }
+                  : undefined),
+            ).rect
+          : null;
+  const editingNoteLayout =
+    editing && editing.object.type !== 'arrow' && editing.object.type !== 'text'
+      ? getNoteLayout(
+          withObjectText(editing.object, editing.value || 'Add a note…'),
+          state.doc.crop ??
+            (image
+              ? { x: 0, y: 0, width: image.naturalWidth, height: image.naturalHeight }
+              : undefined),
+        )
+      : null;
   const objectCount = state.doc.objects.length;
 
   return (
@@ -644,10 +674,10 @@ export function Editor() {
             <Properties
               tool={tool}
               selected={selected}
-              style={selected?.style ?? style}
+              style={selected?.style ?? (tool === 'sticky' ? stickyStyle : style)}
               onStyle={changeStyle}
               onLabel={(label) => {
-                if (selected?.type === 'arrow') updateObject({ ...selected, label });
+                if (selected) updateObject(withObjectText(selected, label));
               }}
               onDelete={deleteSelected}
               onDuplicate={duplicateSelected}
@@ -655,6 +685,16 @@ export function Editor() {
                 if (selected?.type === 'text') updateObject({ ...selected, fontSize });
               }}
               onUpdate={updateObject}
+              arrowMode={selected?.type === 'arrow' ? getArrowMode(selected) : arrowMode}
+              onArrowMode={(mode) => {
+                setArrowMode(mode);
+                if (selected?.type === 'arrow') updateObject(withArrowMode(selected, mode));
+              }}
+              brush={selected?.type === 'pen' ? normalizeBrush(selected.brush) : brush}
+              onBrush={(value) => {
+                setBrush(value);
+                if (selected?.type === 'pen') updateObject({ ...selected, brush: value });
+              }}
               canBringForward={
                 !!selected && canReorderObject(state.doc.objects, selected.id, 'forward')
               }
@@ -686,7 +726,9 @@ export function Editor() {
                     getCurrent={state.getCurrent}
                     tool={tool}
                     setTool={setTool}
-                    style={style}
+                    style={tool === 'sticky' ? stickyStyle : style}
+                    arrowMode={arrowMode}
+                    brush={brush}
                     scale={scale}
                     selectedId={state.selectedId}
                     select={state.select}
@@ -697,7 +739,7 @@ export function Editor() {
                   />
                   {editing && editingPoint && (
                     <textarea
-                      className="inline-text-editor"
+                      className={`inline-text-editor${editingNoteLayout ? ' inline-shape-editor' : ''}`}
                       ref={textInput}
                       aria-label="Edit label"
                       placeholder="Add a label…"
@@ -716,8 +758,46 @@ export function Editor() {
                             ? editing.object.fontSize
                             : editing.object.type === 'arrow'
                               ? (editing.object.labelFontSize ?? 20)
-                              : 20) * scale,
+                              : (editingNoteLayout?.fontSize ?? 20)) * scale,
                         ),
+                        ...(editingNoteLayout
+                          ? {
+                              left: editingNoteLayout.rect.x * scale,
+                              top:
+                                (editingNoteLayout.center.y -
+                                  Math.min(
+                                    editingNoteLayout.rect.height,
+                                    Math.max(1, editingNoteLayout.lines.length) *
+                                      editingNoteLayout.lineHeight,
+                                  ) /
+                                    2) *
+                                scale,
+                              width: Math.max(24, editingNoteLayout.rect.width * scale),
+                              height: Math.max(
+                                24,
+                                Math.min(
+                                  editingNoteLayout.rect.height,
+                                  Math.max(1, editingNoteLayout.lines.length) *
+                                    editingNoteLayout.lineHeight,
+                                ) * scale,
+                              ),
+                              fontSize: editingNoteLayout.fontSize * scale,
+                              background:
+                                editing.object.type === 'sticky'
+                                  ? editing.object.style.color
+                                  : editing.object.type === 'redact'
+                                    ? '#000000'
+                                    : stickyTextColor(editing.object.style.color),
+                              color:
+                                editing.object.type === 'sticky'
+                                  ? stickyTextColor(editing.object.style.color)
+                                  : editing.object.type === 'redact'
+                                    ? '#ffffff'
+                                    : editing.object.style.color,
+                              fontWeight: 500,
+                              lineHeight: `${editingNoteLayout.lineHeight * scale}px`,
+                            }
+                          : {}),
                       }}
                       value={editing.value}
                       onChange={(event) => setEditing({ ...editing, value: event.target.value })}

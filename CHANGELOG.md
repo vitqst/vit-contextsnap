@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+Local development changes only; not included in the public v0.2.0 or v0.2.0-rc.1 ZIPs.
+
+- Attach arrow labels in a midpoint gap; dragging a label moves its whole arrow. Add
+  Straight/Curved controls for new and existing arrows without moving their endpoints.
+- Add a default-on Shadow toggle for arrows and their labels, and for sticky cards.
+  Other annotations and shape notes stay flat.
+- Double-click shapes to add or edit an attached note. Step notes stay clear of the numbered
+  circle, moving above it near the bottom edge.
+- Add colored sticky notes (N) with direct text editing, movement, and corner resizing.
+  Only sticky-card text scales when its object is resized.
+- Make free-draw width respond to pen pressure when available, or mouse speed measured
+  over elapsed time. Add Smoothing, Pressure influence, and Speed influence controls for
+  selected and subsequent strokes; zero influences give constant width.
+- Include drawing refinements in undo/redo and flattened PNG/clipboard export.
 - Disable generated JavaScript module preload hints in extension pages to avoid Chrome's
   cross-world resource mismatch and unused-preload warnings. Normal module imports and
   stylesheets remain bundled locally; no permissions change.

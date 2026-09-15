@@ -9,6 +9,7 @@ import {
   type Point,
   type Rect,
   type Tool,
+  type BrushSettings,
 } from '../core/model';
 import {
   autoControl,
@@ -19,9 +20,10 @@ import {
   moveObject,
   normalizeRect,
   objectBounds,
-  quadraticPoint,
 } from '../core/geometry';
-import { getArrowLabelLayout, hitTestArrowLabel, moveArrowLabelBy } from '../core/arrow-label';
+import { arrowHandles } from '../core/arrow-handles';
+import { sampleStrokePoint } from '../core/brush';
+import { createSticky, resizeSticky } from '../core/notes';
 import { objectsInPaintOrder } from '../core/layers';
 import {
   imageHandles,
@@ -41,6 +43,8 @@ interface Props {
   tool: Tool;
   setTool: (tool: Tool) => void;
   style: ObjectStyle;
+  brush: BrushSettings;
+  arrowMode: 'straight' | 'curved';
   scale: number;
   selectedId: string | null;
   select: (id: string | null) => void;
@@ -59,27 +63,11 @@ interface Gesture {
   doc: EditorDocument;
   latest: EditorDocument;
   moved: boolean;
+  pointerId: number;
 }
 
 function replaceObject(doc: EditorDocument, object: DrawingObject): EditorDocument {
   return { ...doc, objects: doc.objects.map((item) => (item.id === object.id ? object : item)) };
-}
-
-function arrowHandles(
-  arrow: Extract<DrawingObject, { type: 'arrow' }>,
-  sceneBounds: Rect,
-): [ArrowHandle, Point][] {
-  const middle = quadraticPoint(arrow.start, arrow.control, arrow.end, 0.5);
-  const handles: [ArrowHandle, Point][] = [
-    ['start', arrow.start],
-    ['end', arrow.end],
-    ['control', middle],
-  ];
-  if (arrow.label) {
-    const { rect } = getArrowLabelLayout(arrow, sceneBounds);
-    handles.push(['label', { x: rect.x + rect.width, y: rect.y + rect.height }]);
-  }
-  return handles;
 }
 
 function drawOverlay(
@@ -113,7 +101,7 @@ function drawOverlay(
   ctx.strokeRect(bounds.x - pad, bounds.y - pad, bounds.width + pad * 2, bounds.height + pad * 2);
   ctx.setLineDash([]);
   if (selected.type === 'arrow') {
-    arrowHandles(selected, sceneBounds).forEach(([handle, point]) => {
+    arrowHandles(selected, sceneBounds, scale).forEach(([handle, point]) => {
       ctx.beginPath();
       ctx.fillStyle = handle === 'control' ? '#ede8ff' : '#ffffff';
       ctx.arc(point.x, point.y, (handle === 'control' ? 5.5 : 5) / scale, 0, Math.PI * 2);
@@ -121,7 +109,7 @@ function drawOverlay(
       ctx.stroke();
     });
   }
-  if (selected.type === 'image') {
+  if (selected.type === 'image' || selected.type === 'sticky') {
     const side = 9 / scale;
     ctx.fillStyle = '#ffffff';
     for (const point of Object.values(imageHandles(selected.rect))) {
@@ -141,6 +129,8 @@ export function DrawingCanvas(props: Props) {
     tool,
     setTool,
     style,
+    brush,
+    arrowMode,
     scale,
     selectedId,
     select,
@@ -190,17 +180,25 @@ export function DrawingCanvas(props: Props) {
       : { x, y };
   }
 
-  function topObject(point: Point) {
+  function topObject(point: Point, includeInterior = false) {
     const current = getCurrent();
     return objectsInPaintOrder(current.objects)
       .reverse()
-      .find((object) =>
-        hitTestObject(object, point, 8 / scale, current.crop ?? { x: 0, y: 0, width, height }),
+      .find(
+        (object) =>
+          hitTestObject(object, point, 8 / scale, current.crop ?? { x: 0, y: 0, width, height }) ||
+          (includeInterior &&
+            object.type === 'rectangle' &&
+            point.x >= object.rect.x &&
+            point.x <= object.rect.x + object.rect.width &&
+            point.y >= object.rect.y &&
+            point.y <= object.rect.y + object.rect.height),
       );
   }
 
   function onPointerDown(event: ReactPointerEvent<HTMLCanvasElement>) {
     if (event.button !== 0) return;
+    if (gesture.current) return;
     // Commit an active label before creating a new gesture on the image.
     if (
       document.activeElement instanceof HTMLTextAreaElement ||
@@ -216,7 +214,7 @@ export function DrawingCanvas(props: Props) {
     const sceneBounds = committed.crop ?? { x: 0, y: 0, width, height };
     if (tool === 'select') {
       const selected = committed.objects.find((object) => object.id === selectedId);
-      if (selected?.type === 'image') {
+      if (selected?.type === 'image' || selected?.type === 'sticky') {
         const handle = hitTestImageHandle(selected.rect, point, 11 / scale);
         if (handle) {
           gesture.current = {
@@ -227,12 +225,13 @@ export function DrawingCanvas(props: Props) {
             doc: committed,
             latest: committed,
             moved: false,
+            pointerId: event.pointerId,
           };
           return;
         }
       }
       if (selected?.type === 'arrow') {
-        const handles = arrowHandles(selected, sceneBounds);
+        const handles = arrowHandles(selected, sceneBounds, scale);
         const handle = handles.find(([, position]) => distance(point, position) < 11 / scale);
         if (handle) {
           gesture.current = {
@@ -243,6 +242,7 @@ export function DrawingCanvas(props: Props) {
             doc: committed,
             latest: committed,
             moved: false,
+            pointerId: event.pointerId,
           };
           return;
         }
@@ -251,14 +251,13 @@ export function DrawingCanvas(props: Props) {
       select(hit?.id ?? null);
       if (hit)
         gesture.current = {
-          kind:
-            hit.type === 'arrow' && hitTestArrowLabel(hit, point, sceneBounds) ? 'handle' : 'move',
-          handle: 'label',
+          kind: 'move',
           start: point,
           object: hit,
           doc: committed,
           latest: committed,
           moved: false,
+          pointerId: event.pointerId,
         };
       return;
     }
@@ -282,6 +281,7 @@ export function DrawingCanvas(props: Props) {
         doc: committed,
         latest: committed,
         moved: false,
+        pointerId: event.pointerId,
       };
       return;
     }
@@ -294,6 +294,7 @@ export function DrawingCanvas(props: Props) {
         start: point,
         end: point,
         control: point,
+        mode: arrowMode,
         label: '',
         labelOffset: { x: 0, y: 0 },
       };
@@ -301,8 +302,11 @@ export function DrawingCanvas(props: Props) {
       object = {
         ...base,
         type: 'pen',
-        points: [{ ...point, pressure: event.pointerType === 'pen' ? event.pressure : 0.5 }],
+        points: [sampleStrokePoint(point, event)],
+        brush: { ...brush },
       };
+    } else if (tool === 'sticky') {
+      object = createSticky(point, style, sceneBounds);
     } else if (tool === 'step') {
       object = {
         ...base,
@@ -326,14 +330,15 @@ export function DrawingCanvas(props: Props) {
       doc: committed,
       latest: next,
       moved: false,
+      pointerId: event.pointerId,
     };
     select(null);
     preview(next);
   }
 
-  function onPointerMove(event: ReactPointerEvent<HTMLCanvasElement>) {
+  function onPointerMove(event: ReactPointerEvent<HTMLCanvasElement>, released = false) {
     const active = gesture.current;
-    if (!active) return;
+    if (!active || active.pointerId !== event.pointerId) return;
     // An async image insertion, undo, or property edit can invalidate a gesture's snapshot.
     if (active.doc !== getCurrent()) {
       gesture.current = null;
@@ -356,37 +361,45 @@ export function DrawingCanvas(props: Props) {
         object = moveObject(object, { x: point.x - active.start.x, y: point.y - active.start.y });
       } else if (active.kind === 'resize' && object.type === 'image' && active.imageHandle) {
         object = { ...object, rect: resizeImageRect(object.rect, active.imageHandle, point) };
+      } else if (active.kind === 'resize' && object.type === 'sticky' && active.imageHandle) {
+        object = resizeSticky(object, active.imageHandle, point);
       } else if (active.kind === 'handle' && object.type === 'arrow' && active.handle) {
         if (active.handle === 'control') {
           point = {
-            x: 2 * point.x - (object.start.x + object.end.x) / 2,
-            y: 2 * point.y - (object.start.y + object.end.y) / 2,
+            x: object.control.x + 2 * (point.x - active.start.x),
+            y: object.control.y + 2 * (point.y - active.start.y),
           };
         }
-        object =
-          active.handle === 'label'
-            ? moveArrowLabelBy(
-                object,
-                { x: point.x - active.start.x, y: point.y - active.start.y },
-                active.doc.crop ?? { x: 0, y: 0, width, height },
-              )
-            : moveArrowHandle(object, active.handle, point);
+        object = moveArrowHandle(object, active.handle, point);
       } else if (active.kind === 'draw') {
         if (object.type === 'arrow') {
           object = {
             ...object,
             end: point,
-            control: autoControl(active.start, point, event.shiftKey),
+            mode: event.shiftKey ? 'straight' : arrowMode,
+            control: autoControl(active.start, point),
           };
         } else if (object.type === 'pen') {
           const latest = active.latest.objects.find((item) => item.id === object.id);
           const previous = latest?.type === 'pen' ? latest.points : object.points;
+          const points = [...previous];
+          const coalesced = released ? [] : (event.nativeEvent.getCoalescedEvents?.() ?? []);
+          for (const sample of coalesced.length ? coalesced : [event.nativeEvent]) {
+            points.push(
+              sampleStrokePoint(
+                pointAt(sample.clientX, sample.clientY),
+                sample,
+                points.at(-1),
+                released,
+              ),
+            );
+          }
+          object = { ...object, points };
+        } else if (object.type === 'sticky' && active.moved) {
+          const rect = normalizeRect(active.start, point);
           object = {
             ...object,
-            points: [
-              ...previous,
-              { ...point, pressure: event.pointerType === 'pen' ? event.pressure : 0.5 },
-            ],
+            rect: { ...rect, width: Math.max(80, rect.width), height: Math.max(60, rect.height) },
           };
         } else if (object.type === 'magnifier') {
           if (active.moved)
@@ -425,9 +438,9 @@ export function DrawingCanvas(props: Props) {
 
   function finish(event: ReactPointerEvent<HTMLCanvasElement>) {
     const active = gesture.current;
-    if (!active) return;
+    if (!active || active.pointerId !== event.pointerId) return;
     // Include the final pointer position even when no move was dispatched at that position.
-    onPointerMove(event);
+    onPointerMove(event, true);
     if (!gesture.current) return;
     gesture.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId))
@@ -453,10 +466,15 @@ export function DrawingCanvas(props: Props) {
       (active.kind === 'draw' &&
         (active.object?.type === 'pen' ||
           active.object?.type === 'step' ||
+          active.object?.type === 'sticky' ||
           active.object?.type === 'magnifier'))
     ) {
       commit(next);
       if (active.object) select(active.object.id);
+      if (active.kind === 'draw' && active.object?.type === 'sticky') {
+        const card = next.objects.find((item) => item.id === active.object!.id);
+        if (card) editText(card);
+      }
       if (active.kind === 'draw' && active.object?.type !== 'pen' && active.object?.type !== 'step')
         setTool('select');
     } else preview(null);
@@ -474,19 +492,20 @@ export function DrawingCanvas(props: Props) {
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={finish}
-        onPointerCancel={() => {
+        onPointerCancel={(event) => {
+          if (event.pointerId !== gesture.current?.pointerId) return;
           gesture.current = null;
           preview(null);
         }}
-        onLostPointerCapture={() => {
-          if (gesture.current) {
+        onLostPointerCapture={(event) => {
+          if (gesture.current?.pointerId === event.pointerId) {
             gesture.current = null;
             preview(null);
           }
         }}
         onDoubleClick={(event) => {
-          const hit = topObject(pointAt(event.clientX, event.clientY));
-          if (hit?.type === 'arrow' || hit?.type === 'text') {
+          const hit = topObject(pointAt(event.clientX, event.clientY), true);
+          if (hit) {
             select(hit.id);
             editText(hit);
           }

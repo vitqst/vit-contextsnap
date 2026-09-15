@@ -87,7 +87,35 @@ try {
     await page.screenshot({ path: resolve(outputPath, filename), animations: 'disabled' });
   }
 
-  if (process.argv.includes('--image-layers')) {
+  if (process.argv.includes('--drawing-refinements')) {
+    const drawing = await openEditor();
+    await tool(drawing, 'Rectangle (R)');
+    await drag(drawing, [390, 160], [670, 275]);
+    const frame = await point(drawing, 530, 217);
+    await drawing.mouse.dblclick(frame.x, frame.y);
+    await drawing
+      .getByRole('textbox', { name: 'Edit label', exact: true })
+      .fill('Review this section');
+    await drawing.getByRole('textbox', { name: 'Edit label', exact: true }).press('Control+Enter');
+    await tool(drawing, 'Arrow (A)');
+    await tool(drawing, 'Curved');
+    await drag(drawing, [245, 410], [480, 280]);
+    await drawing
+      .getByRole('textbox', { name: 'Arrow label', exact: true })
+      .fill('Keep it connected');
+    await drawing.getByRole('textbox', { name: 'Arrow label', exact: true }).blur();
+    await tool(drawing, 'Sticky note (N)');
+    await click(drawing, 790, 465);
+    await drawing
+      .getByRole('textbox', { name: 'Edit label', exact: true })
+      .fill('Follow up\nTry the narrow layout');
+    await drawing.getByRole('textbox', { name: 'Edit label', exact: true }).press('Control+Enter');
+    await save(drawing, 'drawing-refinements.png');
+    const note = await point(drawing, 790, 465);
+    await drawing.mouse.dblclick(note.x, note.y);
+    await save(drawing, 'sticky-editing.png');
+    await drawing.close();
+  } else if (process.argv.includes('--image-layers')) {
     const layers = await openEditor();
     await layers.getByLabel('Add image file', { exact: true }).setInputFiles({
       name: 'ContextSnap icon.png',

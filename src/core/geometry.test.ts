@@ -18,9 +18,11 @@ import {
   type DrawingObject,
   type ImageObject,
   type MagnifierObject,
+  type PenObject,
   type StepObject,
 } from './model';
 import { getArrowLabelLayout } from './arrow-label';
+import { penOutline } from './brush';
 
 const arrow: ArrowObject = {
   id: 'arrow',
@@ -49,7 +51,7 @@ describe('quadratic arrow geometry', () => {
       x: 100,
       y: 50,
     });
-    expect(getArrowLabelPosition(arrow)).toEqual({ x: 100, y: 30 });
+    expect(getArrowLabelPosition(arrow)).toEqual({ x: 100, y: 50 });
   });
 
   it('creates a gentle perpendicular curve and supports a straight arrow', () => {
@@ -64,20 +66,26 @@ describe('quadratic arrow geometry', () => {
   it('moves geometry and labels together without mutating the original', () => {
     const before = structuredClone(arrow);
     const moved = moveObject(arrow, { x: 30, y: -10 }) as ArrowObject;
-    expect(getArrowLabelPosition(moved)).toEqual({ x: 130, y: 20 });
+    expect(getArrowLabelPosition(moved)).toEqual({ x: 130, y: 40 });
     expect(moved.start).toEqual({ x: 30, y: -10 });
     expect(moved.control).toEqual({ x: 130, y: 90 });
     expect(arrow).toEqual(before);
   });
 
-  it('preserves the bend as an endpoint moves and lets the label be positioned separately', () => {
+  it('preserves the bend as an endpoint moves and moves the whole arrow by its label', () => {
     const resized = moveArrowHandle(arrow, 'end', { x: 300, y: 40 });
     expect(resized.control).toEqual({ x: 150, y: 120 });
     expect(resized.start).toEqual(arrow.start);
     const movedLabel = moveArrowHandle(resized, 'label', { x: 170, y: 95 });
     expect(getArrowLabelPosition(movedLabel)).toEqual({ x: 170, y: 95 });
-    expect(movedLabel.end).toEqual(resized.end);
+    expect(movedLabel.end).toEqual({ x: 320, y: 65 });
     expect(arrow.end).toEqual({ x: 200, y: 0 });
+  });
+
+  it('uses a straight mode for hit testing even when a stored curved handle exists', () => {
+    const straight = { ...arrow, label: '', mode: 'straight' as const };
+    expect(hitTestObject(straight, { x: 100, y: 0 }, 2)).toBe(true);
+    expect(hitTestObject(straight, { x: 100, y: 50 }, 2)).toBe(false);
   });
 
   it('hits the actual curved path instead of the line between endpoints', () => {
@@ -95,6 +103,52 @@ describe('quadratic arrow geometry', () => {
     expect(bounds.x + bounds.width).toBeGreaterThanOrEqual(200);
     expect(bounds.y + bounds.height).toBeGreaterThanOrEqual(50);
     expect(bounds.y + bounds.height).toBeLessThan(100);
+  });
+});
+
+describe('pressure-sensitive pen selection', () => {
+  const pen: PenObject = {
+    id: 'pressure-pen',
+    seed: 1,
+    type: 'pen',
+    style: { color: '#e05252', width: 16, sketch: false },
+    brush: { smoothing: 0.6, pressure: 1, speed: 1 },
+    points: Array.from({ length: 41 }, (_, index) => ({
+      x: 100 + index * 10,
+      y: 100,
+      pressure: 1,
+      input: 'pen',
+    })),
+  };
+
+  it('bounds every outline point, including ink twice the nominal radius', () => {
+    const bounds = objectBounds(pen);
+    expect(bounds.y).toBeCloseTo(68);
+    expect(bounds.height).toBeCloseTo(64);
+    for (const [x, y] of penOutline(pen)) {
+      expect(x).toBeGreaterThanOrEqual(bounds.x);
+      expect(x).toBeLessThanOrEqual(bounds.x + bounds.width);
+      expect(y).toBeGreaterThanOrEqual(bounds.y);
+      expect(y).toBeLessThanOrEqual(bounds.y + bounds.height);
+    }
+  });
+
+  it('selects thick outer ink and respects tolerance outside the actual outline', () => {
+    expect(hitTestObject(pen, { x: 300, y: 130 }, 0)).toBe(true);
+    expect(hitTestObject(pen, { x: 70, y: 100 }, 0)).toBe(true);
+    expect(hitTestObject(pen, { x: 300, y: 133 }, 0)).toBe(false);
+    expect(hitTestObject(pen, { x: 300, y: 133 }, 2)).toBe(true);
+  });
+
+  it('does not select blank space beside a light-pressure stroke', () => {
+    const light = { ...pen, points: pen.points.map((point) => ({ ...point, pressure: 0.1 })) };
+    expect(hitTestObject(light, { x: 300, y: 110 }, 0)).toBe(false);
+    expect(hitTestObject(light, { x: 300, y: 102 }, 0)).toBe(true);
+  });
+
+  it('selects pressure-sized dots and never selects an empty pen object', () => {
+    expect(hitTestObject({ ...pen, points: [pen.points[0]!] }, { x: 123, y: 100 }, 0)).toBe(true);
+    expect(hitTestObject({ ...pen, points: [] }, { x: 0, y: 0 }, 6)).toBe(false);
   });
 });
 

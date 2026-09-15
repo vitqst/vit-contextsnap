@@ -183,9 +183,7 @@ export function drawMagnifier(
   const sample = magnifierSourceRect(center, radius, lens.zoom);
   ctx.save();
   ctx.fillStyle = '#ffffff';
-  ctx.shadowColor = 'rgba(24, 24, 38, 0.2)';
-  ctx.shadowBlur = 12;
-  ctx.shadowOffsetY = 3;
+  ctx.shadowColor = 'transparent';
   ctx.beginPath();
   ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
   ctx.fill();

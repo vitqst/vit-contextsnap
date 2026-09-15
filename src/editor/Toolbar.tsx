@@ -8,6 +8,7 @@ import {
   RectangleHorizontal,
   SquareDashed,
   Type,
+  StickyNote,
   ZoomIn,
 } from 'lucide-react';
 import type { Tool } from '../core/model';
@@ -19,6 +20,7 @@ const TOOLS = [
   { id: 'pen', title: 'Pen', key: 'P', icon: Pencil },
   { id: 'rectangle', title: 'Rectangle', key: 'R', icon: RectangleHorizontal },
   { id: 'text', title: 'Text', key: 'T', icon: Type },
+  { id: 'sticky', title: 'Sticky note', key: 'N', icon: StickyNote },
   { id: 'step', title: 'Step', key: 'S', icon: CircleDot },
   { id: 'magnifier', title: 'Magnifier', key: 'M', icon: ZoomIn },
   { id: 'blur', title: 'Blur', key: 'B', icon: CircleDashed },

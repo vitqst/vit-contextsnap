@@ -214,7 +214,7 @@ test('Magnifier enlarges a circular source region and resamples after movement',
   ]);
 });
 
-test('long unbroken labels wrap inside the image and move immediately from a clamped edge', async ({
+test('long labels stay bounded and move with their arrow near an image edge', async ({
   page,
   extensionId,
 }, testInfo) => {
@@ -243,8 +243,8 @@ test('long unbroken labels wrap inside the image and move immediately from a cla
   const after = await redBounds(page, await downloadPng(page));
   expect(
     after.right - before.right,
-    'Dragging from a clamped edge must move the label immediately',
-  ).toBeGreaterThan(60);
+    'Dragging the attached label shifts its midpoint while respecting image bounds',
+  ).toBeGreaterThan(20);
   expect(after.right - before.right).toBeLessThan(100);
   const screenshot = testInfo.outputPath('wrapped-label.png');
   await page.screenshot({ path: screenshot });
@@ -253,7 +253,15 @@ test('long unbroken labels wrap inside the image and move immediately from a cla
   await label.blur();
   expect(
     (await downloadPng(page)).equals(arrowOnly),
-    'Moving a label must preserve its arrow geometry',
+    'Moving an attached label must move its arrow geometry too',
+  ).toBe(false);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await label.fill('');
+  await label.blur();
+  expect(
+    (await downloadPng(page)).equals(arrowOnly),
+    'Undo restores the original arrow and label position',
   ).toBe(true);
 });
 

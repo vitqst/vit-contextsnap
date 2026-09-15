@@ -19,13 +19,13 @@
 
 ## Tasks and acceptance checks
 
-- [ ] Baseline: preserve preload fix in its own local commit; create ignored worktree; `npm ci && npm test` must pass.
-- [ ] Arrow core: `src/core/arrows.ts`, `arrow-label.ts` and tests. Write midpoint attachment/mode-switch tests first, run RED, implement, run GREEN. API: `arrowMode`, `arrowControl`, `withArrowMode`. Root integrates geometry and pointer handling.
-- [ ] Notes core: `src/core/notes.ts`, `src/editor/render-notes.ts`, tests. Pure shared text layout, object text helpers, bounded card creation/resizing and scalable font. Test default shadow, move/resize text bounds, empty text, multiline/wrapping and legacy objects before implementation.
-- [ ] Brush core: `src/core/brush.ts`, `src/editor/BrushProperties.tsx`, tests. API: `DEFAULT_BRUSH`, `normalizeBrush`, `sampleStrokePoint`, `penOutline`; input sample stores `time` and `input`. Test true pressure, identical paths with different timestamps, zero influence, duplicate times, release handling and deterministic settings before implementation.
-- [ ] Integration: root owns `model.ts`, `geometry.ts`, `render.ts`, `render-effects.ts`, `DrawingCanvas.tsx`, `Editor.tsx`, `Properties.tsx`, `Toolbar.tsx`, CSS. Write failing browser tests for sticky placement/edit/resize/shadow, rectangle note movement, attached-label dragging, arrow mode/shadow and pen controls; then implement.
-- [ ] Regression: adjust only obsolete detached-label expectations; keep capture/privacy/export assertions. Unit tests for geometry/history and browser tests for actual pixels, shadows on/off, unchanged text size on arrows, scaled card text, speed-driven widths, crop, undo and privacy overlap.
-- [ ] Review/finish: `npm run check`; headed native `xvfb-run -a -s '-screen 0 1920x1200x24' sh -c 'CI=1 CONTEXTSNAP_NATIVE_INPUT=1 CONTEXTSNAP_HEADED=1 CONTEXTSNAP_TEST_DISPLAY="$DISPLAY" npm run test:e2e'`; inspect real-editor screenshots; independent review; update README/CHANGELOG with unreleased scope. Commit locally and offer integration; do not push or replace public ZIPs without instruction.
+- [x] Baseline: preserve preload fix in its own local commit; create ignored worktree; `npm ci && npm test` must pass.
+- [x] Arrow core: `src/core/arrows.ts`, `arrow-label.ts` and tests. Write midpoint attachment/mode-switch tests first, run RED, implement, run GREEN. API: `arrowMode`, `arrowControl`, `withArrowMode`. Root integrates geometry and pointer handling.
+- [x] Notes core: `src/core/notes.ts`, `src/editor/render-notes.ts`, tests. Pure shared text layout, object text helpers, bounded card creation/resizing and scalable font. Test default shadow, move/resize text bounds, empty text, multiline/wrapping and legacy objects before implementation.
+- [x] Brush core: `src/core/brush.ts`, `src/editor/BrushProperties.tsx`, tests. API: `DEFAULT_BRUSH`, `normalizeBrush`, `sampleStrokePoint`, `penOutline`; input sample stores `time` and `input`. Test true pressure, identical paths with different timestamps, zero influence, duplicate times, release handling and deterministic settings before implementation.
+- [x] Integration: root owns `model.ts`, `geometry.ts`, `render.ts`, `render-effects.ts`, `DrawingCanvas.tsx`, `Editor.tsx`, `Properties.tsx`, `Toolbar.tsx`, CSS. Write failing browser tests for sticky placement/edit/resize/shadow, rectangle note movement, attached-label dragging, arrow mode/shadow and pen controls; then implement.
+- [x] Regression: adjust only obsolete detached-label expectations; keep capture/privacy/export assertions. Unit tests for geometry/history and browser tests for actual pixels, shadows on/off, unchanged text size on arrows, scaled card text, speed-driven widths, crop, undo and privacy overlap.
+- [x] Review/finish: `npm run check`; headed native `xvfb-run -a -s '-screen 0 1920x1200x24' sh -c 'CI=1 CONTEXTSNAP_NATIVE_INPUT=1 CONTEXTSNAP_HEADED=1 CONTEXTSNAP_TEST_DISPLAY="$DISPLAY" npm run test:e2e'`; inspect real-editor screenshots; independent review; update README/CHANGELOG with unreleased scope. Commit locally and offer integration; do not push or replace public ZIPs without instruction.
 
 ## Shared model contract
 
@@ -45,3 +45,20 @@ interface BrushSettings {
 ```
 
 No generative mockup is needed: this extends an existing code-native canvas/visual system, not a website redesign. Validate the real rendered editor instead.
+
+## Verification and handoff — 2026-09-16
+
+- `npm run check`: typecheck, lint, formatting, 231 unit tests (17 files), and production build pass.
+- Full headed Chrome suite using real native capture shortcuts: 40 browser tests pass.
+- Browser pixel checks cover pressure/speed-dependent stroke widths, shadow toggles, undo,
+  clipboard PNG export, cropped redaction overlap, and attached-label movement.
+- Pen pressure was delivered through Chrome's input protocol; physical stylus hardware was
+  not available for manual verification.
+- Independent review approved after RED/GREEN fixes for white-note editing contrast and
+  Step-note placement near crop edges. Additional regressions protect pointer cancellation,
+  no-op text-edit history, and thick-stroke hit testing.
+- Actual editor screenshots inspected: `docs/images/drawing-refinements.png` and
+  `docs/images/sticky-editing.png`. README/CHANGELOG distinguish these local changes from
+  published stable/RC downloads.
+- Work is on `feat/drawing-refinements`, based on local preload fix `49dbbe9`. No push,
+  public release, version bump, or replacement ZIP is part of this batch.

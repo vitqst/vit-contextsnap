@@ -1,5 +1,7 @@
 import { Copy, Trash2, BringToFront, SendToBack } from 'lucide-react';
-import type { DrawingObject, ObjectStyle, Tool } from '../core/model';
+import type { BrushSettings, DrawingObject, ObjectStyle, Tool } from '../core/model';
+import { BrushProperties } from './BrushProperties';
+import { objectText } from '../core/notes';
 import { IconButton } from '../ui/IconButton';
 import { EffectsProperties } from './EffectsProperties';
 
@@ -17,6 +19,10 @@ interface Props {
   canBringForward: boolean;
   canSendBackward: boolean;
   onReorder: (direction: 'forward' | 'backward') => void;
+  arrowMode: 'straight' | 'curved';
+  onArrowMode: (mode: 'straight' | 'curved') => void;
+  brush: BrushSettings;
+  onBrush: (brush: BrushSettings) => void;
 }
 
 export function Properties({
@@ -32,6 +38,10 @@ export function Properties({
   canBringForward,
   canSendBackward,
   onReorder,
+  arrowMode,
+  onArrowMode,
+  brush,
+  onBrush,
 }: Props) {
   const type = selected?.type ?? tool;
   if (type === 'select' || type === 'crop') return null;
@@ -39,14 +49,23 @@ export function Properties({
   return (
     <aside className="properties-panel" aria-label="Drawing properties">
       <div className="property-heading">
-        {type === 'redact' ? 'Redaction' : type[0]!.toUpperCase() + type.slice(1)}
+        {type === 'redact'
+          ? 'Redaction'
+          : type === 'sticky'
+            ? 'Sticky note'
+            : type[0]!.toUpperCase() + type.slice(1)}
         <span>{selected ? 'Selected' : 'Style'}</span>
       </div>
       {!isRedact && type !== 'blur' && type !== 'image' && (
         <>
-          <label className="property-label">{type === 'step' ? 'Fill' : 'Stroke'}</label>
+          <label className="property-label">
+            {type === 'step' || type === 'sticky' ? 'Fill' : 'Stroke'}
+          </label>
           <div className="color-row">
-            {COLORS.map((color) => (
+            {(type === 'sticky'
+              ? ['#ffe58f', '#ffd6df', '#c9edcf', '#cfe4ff', '#e2d5ff', '#ffffff', '#282832']
+              : COLORS
+            ).map((color) => (
               <button
                 key={color}
                 type="button"
@@ -120,6 +139,52 @@ export function Properties({
           )}
         </>
       )}
+      {type === 'arrow' && (
+        <div className="style-switch" role="group" aria-label="Arrow mode">
+          {(['straight', 'curved'] as const).map((mode) => (
+            <button
+              key={mode}
+              className={arrowMode === mode ? 'chosen' : ''}
+              aria-pressed={arrowMode === mode}
+              onClick={() => onArrowMode(mode)}
+            >
+              {mode === 'straight' ? 'Straight' : 'Curved'}
+            </button>
+          ))}
+        </div>
+      )}
+      {(type === 'arrow' || type === 'sticky') && (
+        <label className="shadow-option">
+          <input
+            type="checkbox"
+            checked={style.shadow !== false}
+            onChange={(event) => onStyle({ shadow: event.target.checked })}
+          />
+          Shadow
+        </label>
+      )}
+      {type === 'pen' && <BrushProperties value={brush} onChange={onBrush} />}
+      {selected && selected.type !== 'arrow' && selected.type !== 'text' && (
+        <div className="label-property">
+          <label className="property-label" htmlFor="shape-note">
+            Note
+          </label>
+          <textarea
+            id="shape-note"
+            aria-label="Shape note"
+            rows={3}
+            value={objectText(selected)}
+            onChange={(event) => onLabel(event.target.value)}
+            placeholder="Double-click the shape to type…"
+          />
+        </div>
+      )}
+      {type === 'sticky' && (
+        <p className="property-note">
+          Double-click to type. Drag to move; resize from a corner. Only card text scales when
+          resized.
+        </p>
+      )}
       {isRedact && (
         <p className="property-note">
           Cover private details with solid black. The exported image contains only the covered
@@ -185,14 +250,9 @@ export function Properties({
               </option>
             ))}
           </select>
-          <button
-            className="property-reset"
-            onClick={() => onUpdate({ ...selected, labelOffset: { x: 0, y: 0 } })}
-          >
-            Reset label position
-          </button>
           <p className="property-note">
-            Drag the label to move it. Long labels wrap; very long labels end with … in the image.
+            Drag the label to move its arrow. Text stays attached; long labels wrap without changing
+            font size.
           </p>
         </div>
       )}
@@ -230,8 +290,8 @@ export function Properties({
       {type === 'arrow' && (
         <p className="property-note">
           {selected
-            ? 'Drag an endpoint to aim. Move the middle handle to bend.'
-            : 'Drag to draw a curve. Hold Shift for a straight arrow.'}
+            ? 'Drag an endpoint to aim. In Curved mode, drag the bend handle above the label.'
+            : 'Choose Straight or Curved, then drag. Hold Shift to draw straight.'}
         </p>
       )}
     </aside>

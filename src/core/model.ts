@@ -11,18 +11,29 @@ export interface Rect extends Point {
 
 export interface StrokePoint extends Point {
   pressure: number;
+  time?: number;
+  input?: 'pen' | 'mouse';
+}
+
+export interface BrushSettings {
+  smoothing: number;
+  pressure: number;
+  speed: number;
 }
 
 export interface ObjectStyle {
   color: string;
   width: number;
   sketch: boolean;
+  /** Only arrows (including their labels) and sticky cards render shadows. */
+  shadow?: boolean;
 }
 
 interface ObjectBase {
   id: string;
   seed: number;
   style: ObjectStyle;
+  note?: string;
 }
 
 export interface ArrowObject extends ObjectBase {
@@ -30,16 +41,25 @@ export interface ArrowObject extends ObjectBase {
   start: Point;
   end: Point;
   control: Point;
+  mode?: 'straight' | 'curved';
   label: string;
   /** Label typography is independent of the arrow's stroke thickness. Defaults to 20. */
   labelFontSize?: number;
-  /** Offset from the quadratic curve midpoint, so labels follow moved/reshaped arrows. */
+  /** Legacy offset retained for compatibility; attached labels ignore it. */
   labelOffset: Point;
 }
 
 export interface PenObject extends ObjectBase {
   type: 'pen';
   points: StrokePoint[];
+  brush?: BrushSettings;
+}
+
+export interface StickyObject extends ObjectBase {
+  type: 'sticky';
+  rect: Rect;
+  text: string;
+  fontSize: number;
 }
 
 export interface RectangleObject extends ObjectBase {
@@ -89,13 +109,15 @@ export type DrawingObject =
   | StepObject
   | BlurObject
   | MagnifierObject
-  | ImageObject;
+  | ImageObject
+  | StickyObject;
 export type Tool =
   | 'select'
   | 'arrow'
   | 'pen'
   | 'rectangle'
   | 'text'
+  | 'sticky'
   | 'redact'
   | 'crop'
   | 'step'

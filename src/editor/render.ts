@@ -1,7 +1,9 @@
-import { getStroke } from 'perfect-freehand';
 import rough from 'roughjs';
 import { ARROW_LABEL_FONT_FAMILY, getArrowLabelLayout } from '../core/arrow-label';
 import { arrowHeadPoints } from '../core/geometry';
+import { arrowControl } from '../core/arrows';
+import { penOutline } from '../core/brush';
+import { drawShapeNote, drawSticky } from './render-notes';
 import { objectsInPaintOrder } from '../core/layers';
 import type {
   ArrowObject,
@@ -43,6 +45,7 @@ export function drawScene(
     if (object.type === 'magnifier') drawMagnifier(ctx, source, object);
     else if (object.type === 'redact') drawRedaction(ctx, object.rect);
     else if (object.type !== 'blur' && object.type !== 'image') drawObject(ctx, object, bounds);
+    if (object.note?.trim()) drawShapeNote(ctx, object, bounds);
   }
   ctx.restore();
 }
@@ -60,6 +63,10 @@ export function drawObject(
   ctx.lineWidth = object.style.width;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
   switch (object.type) {
     case 'arrow':
       drawArrow(ctx, object, sceneBounds);
@@ -93,23 +100,32 @@ export function drawObject(
     case 'text':
       drawText(ctx, object);
       break;
+    case 'sticky':
+      drawSticky(ctx, object, sceneBounds);
+      break;
   }
   ctx.restore();
 }
 
 function drawArrow(ctx: CanvasRenderingContext2D, arrow: ArrowObject, sceneBounds?: Rect): void {
+  const control = arrowControl(arrow);
+  if (arrow.style.shadow !== false) {
+    ctx.shadowColor = 'rgba(24, 24, 38, 0.24)';
+    ctx.shadowBlur = 5;
+    ctx.shadowOffsetY = 2;
+  }
   const [headA, headB] = arrowHeadPoints(arrow);
   if (arrow.style.sketch) {
     const path = [
       `M ${arrow.start.x} ${arrow.start.y}`,
-      `Q ${arrow.control.x} ${arrow.control.y} ${arrow.end.x} ${arrow.end.y}`,
+      `Q ${control.x} ${control.y} ${arrow.end.x} ${arrow.end.y}`,
       `M ${headA.x} ${headA.y} L ${arrow.end.x} ${arrow.end.y} L ${headB.x} ${headB.y}`,
     ].join(' ');
     rough.canvas(ctx.canvas).path(path, roughOptions(arrow.style, arrow.seed));
   } else {
     ctx.beginPath();
     ctx.moveTo(arrow.start.x, arrow.start.y);
-    ctx.quadraticCurveTo(arrow.control.x, arrow.control.y, arrow.end.x, arrow.end.y);
+    ctx.quadraticCurveTo(control.x, control.y, arrow.end.x, arrow.end.y);
     ctx.moveTo(headA.x, headA.y);
     ctx.lineTo(arrow.end.x, arrow.end.y);
     ctx.lineTo(headB.x, headB.y);
@@ -125,13 +141,28 @@ function drawArrowLabel(
 ): void {
   const { rect, center, fontSize, lineHeight, lines } = getArrowLabelLayout(arrow, sceneBounds);
   if (!lines.length) return;
+  const control = arrowControl(arrow);
+  const anchor = {
+    x: (arrow.start.x + 2 * control.x + arrow.end.x) / 4,
+    y: (arrow.start.y + 2 * control.y + arrow.end.y) / 4,
+  };
+  // A crop-clamped label keeps a visible connection to its owning arrow.
+  if (
+    Math.abs(anchor.x - center.x) > rect.width / 2 ||
+    Math.abs(anchor.y - center.y) > rect.height / 2
+  ) {
+    ctx.beginPath();
+    ctx.moveTo(anchor.x, anchor.y);
+    ctx.lineTo(center.x, center.y);
+    ctx.stroke();
+  }
   ctx.font = `500 ${fontSize}px ${ARROW_LABEL_FONT_FAMILY}`;
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'center';
   const height = lines.length * lineHeight;
   ctx.fillStyle = arrow.style.color.toLowerCase() === '#ffffff' ? '#282832' : '#ffffff';
   ctx.beginPath();
-  ctx.roundRect(rect.x, rect.y, rect.width, rect.height, 7);
+  ctx.roundRect(rect.x, rect.y, rect.width, rect.height, 3);
   ctx.fill();
   ctx.save();
   ctx.clip();
@@ -147,16 +178,13 @@ function drawStep(ctx: CanvasRenderingContext2D, object: StepObject): void {
   ctx.beginPath();
   ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
   ctx.fillStyle = object.style.color;
-  ctx.shadowColor = 'rgba(24, 24, 38, 0.14)';
-  ctx.shadowBlur = 5;
-  ctx.shadowOffsetY = 2;
   ctx.fill();
   ctx.shadowColor = 'transparent';
   ctx.strokeStyle = '#ffffff';
   ctx.lineWidth = 3;
   ctx.stroke();
   const text = String(object.number);
-  let fontSize = Math.max(12, radius * 0.95);
+  let fontSize = 20;
   ctx.font = `700 ${fontSize}px ${FONT_FAMILY}`;
   const measured = ctx.measureText(text).width;
   if (measured > radius * 1.45) fontSize *= (radius * 1.45) / measured;
@@ -178,17 +206,7 @@ function stepTextColor(color: string): string {
 
 function drawPen(ctx: CanvasRenderingContext2D, object: PenObject): void {
   if (!object.points.length) return;
-  const outline = getStroke(
-    object.points.map((point) => [point.x, point.y, point.pressure]),
-    {
-      size: object.style.width * 2,
-      thinning: 0.45,
-      smoothing: 0.6,
-      streamline: 0.45,
-      simulatePressure: false,
-      last: true,
-    },
-  );
+  const outline = penOutline(object);
   const first = outline[0];
   if (!first || first[0] === undefined || first[1] === undefined) return;
   ctx.beginPath();

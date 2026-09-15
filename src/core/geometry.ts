@@ -1,5 +1,8 @@
 import type { ArrowHandle, ArrowObject, DrawingObject, Point, Rect } from './model';
 import { getArrowLabelLayout } from './arrow-label';
+import { arrowControl } from './arrows';
+import { getNoteLayout } from './notes';
+import { penOutline } from './brush';
 
 export { arrowLabelFontSize, hitTestArrowLabel, moveArrowLabelBy } from './arrow-label';
 
@@ -24,7 +27,7 @@ export function autoControl(start: Point, end: Point, straight = false): Point {
 }
 
 export function getArrowLabelPosition(arrow: ArrowObject): Point {
-  return add(quadraticPoint(arrow.start, arrow.control, arrow.end, 0.5), arrow.labelOffset);
+  return quadraticPoint(arrow.start, arrowControl(arrow), arrow.end, 0.5);
 }
 
 export function textDimensions(text: string, fontSize: number): { width: number; height: number } {
@@ -80,6 +83,7 @@ export function moveObject<T extends DrawingObject>(object: T, delta: Point): T 
     case 'redact':
     case 'blur':
     case 'image':
+    case 'sticky':
       return { ...object, rect: { ...object.rect, ...add(object.rect, delta) } };
   }
 }
@@ -90,8 +94,8 @@ export function moveArrowHandle(
   point: Point,
 ): ArrowObject {
   if (handle === 'label') {
-    const middle = quadraticPoint(arrow.start, arrow.control, arrow.end, 0.5);
-    return { ...arrow, labelOffset: { x: point.x - middle.x, y: point.y - middle.y } };
+    const middle = getArrowLabelPosition(arrow);
+    return moveObject(arrow, { x: point.x - middle.x, y: point.y - middle.y });
   }
   if (handle === 'control') return { ...arrow, control: { ...point } };
   // Preserve the bend relative to the chord when either endpoint is dragged.
@@ -104,15 +108,20 @@ export function moveArrowHandle(
 }
 
 export function objectBounds(object: DrawingObject, sceneBounds?: Rect): Rect {
+  const bounds = baseObjectBounds(object, sceneBounds);
+  return object.note?.trim() ? union(bounds, getNoteLayout(object, sceneBounds).rect) : bounds;
+}
+
+function baseObjectBounds(object: DrawingObject, sceneBounds?: Rect): Rect {
   switch (object.type) {
     case 'arrow': {
+      const control = arrowControl(object);
       const points = [object.start, object.end];
       for (const axis of ['x', 'y'] as const) {
-        const divisor = object.start[axis] - 2 * object.control[axis] + object.end[axis];
+        const divisor = object.start[axis] - 2 * control[axis] + object.end[axis];
         if (Math.abs(divisor) < 0.00001) continue;
-        const t = (object.start[axis] - object.control[axis]) / divisor;
-        if (t > 0 && t < 1)
-          points.push(quadraticPoint(object.start, object.control, object.end, t));
+        const t = (object.start[axis] - control[axis]) / divisor;
+        if (t > 0 && t < 1) points.push(quadraticPoint(object.start, control, object.end, t));
       }
       const head = arrowHeadPoints(object);
       points.push(...head);
@@ -125,7 +134,7 @@ export function objectBounds(object: DrawingObject, sceneBounds?: Rect): Rect {
       return bounds;
     }
     case 'pen':
-      return expand(boundsOfPoints(object.points), object.style.width);
+      return boundsOfPoints(penBoundary(object));
     case 'text':
       return { ...object.position, ...textDimensions(object.text, object.fontSize) };
     case 'rectangle':
@@ -144,6 +153,7 @@ export function objectBounds(object: DrawingObject, sceneBounds?: Rect): Rect {
     case 'redact':
     case 'blur':
     case 'image':
+    case 'sticky':
       return { ...object.rect };
   }
 }
@@ -157,6 +167,7 @@ export function hitTestObject(
 ): boolean {
   const padding = tolerance + object.style.width / 2;
   if (!contains(expand(objectBounds(object, sceneBounds), tolerance), point)) return false;
+  if (object.note?.trim() && contains(getNoteLayout(object, sceneBounds).rect, point)) return true;
   switch (object.type) {
     case 'arrow': {
       if (
@@ -165,11 +176,12 @@ export function hitTestObject(
       )
         return true;
       // Dense sampling follows tight bends too, while keeping pointer work bounded.
-      const length = distance(object.start, object.control) + distance(object.control, object.end);
+      const control = arrowControl(object);
+      const length = distance(object.start, control) + distance(control, object.end);
       const steps = Math.min(256, Math.max(24, Math.ceil(length / 8)));
       let previous = object.start;
       for (let index = 1; index <= steps; index++) {
-        const next = quadraticPoint(object.start, object.control, object.end, index / steps);
+        const next = quadraticPoint(object.start, control, object.end, index / steps);
         if (distanceToSegment(point, previous, next) <= padding) return true;
         previous = next;
       }
@@ -177,27 +189,13 @@ export function hitTestObject(
         (head) => distanceToSegment(point, object.end, head) <= padding,
       );
     }
-    case 'pen': {
-      const first = object.points[0];
-      if (!first) return false;
-      if (object.points.length === 1)
-        return distance(point, first) <= tolerance + object.style.width;
-      for (let index = 1; index < object.points.length; index++) {
-        const previous = object.points[index - 1];
-        const next = object.points[index];
-        if (
-          previous &&
-          next &&
-          distanceToSegment(point, previous, next) <= tolerance + object.style.width
-        )
-          return true;
-      }
-      return false;
-    }
+    case 'pen':
+      return hitFilledOutline(penBoundary(object), point, tolerance);
     case 'text':
     case 'redact':
     case 'blur':
     case 'image':
+    case 'sticky':
       return true;
     case 'step':
     case 'magnifier':
@@ -217,7 +215,8 @@ export function hitTestObject(
 
 /** Open arrowhead follows the final curve tangent, including sharp endpoint edits. */
 export function arrowHeadPoints(arrow: ArrowObject): [Point, Point] {
-  const tangent = distance(arrow.end, arrow.control) > 0.001 ? arrow.control : arrow.start;
+  const control = arrowControl(arrow);
+  const tangent = distance(arrow.end, control) > 0.001 ? control : arrow.start;
   const angle = Math.atan2(arrow.end.y - tangent.y, arrow.end.x - tangent.x);
   const headLength = Math.min(
     Math.max(14, arrow.style.width * 4.5),
@@ -228,6 +227,27 @@ export function arrowHeadPoints(arrow: ArrowObject): [Point, Point] {
     x: arrow.end.x - Math.cos(direction) * headLength,
     y: arrow.end.y - Math.sin(direction) * headLength,
   })) as [Point, Point];
+}
+
+function penBoundary(object: Extract<DrawingObject, { type: 'pen' }>): Point[] {
+  return penOutline(object).map(([x, y]) => ({ x: x!, y: y! }));
+}
+
+/** Follow the filled outline, including pressure, smoothing and overlapping loops. */
+function hitFilledOutline(outline: Point[], point: Point, tolerance: number): boolean {
+  let previous = outline.at(-1);
+  if (!previous) return false;
+  let winding = 0;
+  for (const next of outline) {
+    if (distanceToSegment(point, previous, next) <= tolerance) return true;
+    const side =
+      (next.x - previous.x) * (point.y - previous.y) -
+      (point.x - previous.x) * (next.y - previous.y);
+    if (previous.y <= point.y && next.y > point.y && side > 0) winding++;
+    else if (previous.y > point.y && next.y <= point.y && side < 0) winding--;
+    previous = next;
+  }
+  return winding !== 0;
 }
 
 function distanceToSegment(point: Point, start: Point, end: Point): number {

@@ -1,4 +1,5 @@
 import type { ArrowObject, Point, Rect } from './model';
+import { arrowControl } from './arrows';
 
 export const ARROW_LABEL_FONT_FAMILY =
   'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
@@ -6,7 +7,6 @@ const MAX_WIDTH = 320;
 const MAX_LINES = 8;
 const PADDING_X = 10;
 const PADDING_Y = 6;
-const CURVE_GAP = 12;
 
 export interface ArrowLabelLayout {
   rect: Rect;
@@ -43,13 +43,13 @@ export function getArrowLabelLayout(arrow: ArrowObject, bounds?: Rect): ArrowLab
       : { lines: [], truncated: text.length > 0 };
   const width = Math.min(maxWidth, Math.max(0, ...wrapped.lines.map(measure)) + PADDING_X * 2);
   const height = Math.min(maxHeight, wrapped.lines.length * lineHeight + PADDING_Y * 2);
+  const control = arrowControl(arrow);
   const anchor = {
-    x: arrow.start.x * 0.25 + arrow.control.x * 0.5 + arrow.end.x * 0.25 + arrow.labelOffset.x,
-    y: arrow.start.y * 0.25 + arrow.control.y * 0.5 + arrow.end.y * 0.25 + arrow.labelOffset.y,
+    x: arrow.start.x * 0.25 + control.x * 0.5 + arrow.end.x * 0.25,
+    y: arrow.start.y * 0.25 + control.y * 0.5 + arrow.end.y * 0.25,
   };
   let x = anchor.x - width / 2;
-  const curveY = anchor.y - arrow.labelOffset.y;
-  let y = labelBaseTop(curveY, height, bounds) + arrow.labelOffset.y;
+  let y = anchor.y - height / 2;
   if (bounds) {
     x = Math.max(bounds.x, Math.min(bounds.x + bounds.width - width, x));
     y = Math.max(bounds.y, Math.min(bounds.y + bounds.height - height, y));
@@ -75,28 +75,15 @@ export function hitTestArrowLabel(arrow: ArrowObject, point: Point, bounds?: Rec
   );
 }
 
-/** Start a label drag from the displayed badge, including any image/crop clamping. */
-export function moveArrowLabelBy(arrow: ArrowObject, delta: Point, bounds?: Rect): ArrowObject {
-  const { rect, center } = getArrowLabelLayout(arrow, bounds);
-  const curveMidpoint = {
-    x: arrow.start.x * 0.25 + arrow.control.x * 0.5 + arrow.end.x * 0.25,
-    y: arrow.start.y * 0.25 + arrow.control.y * 0.5 + arrow.end.y * 0.25,
-  };
+/** An attached label is a grip for its whole arrow, even when crop-clamped. */
+export function moveArrowLabelBy(arrow: ArrowObject, delta: Point, _bounds?: Rect): ArrowObject {
+  const translate = (point: Point): Point => ({ x: point.x + delta.x, y: point.y + delta.y });
   return {
     ...arrow,
-    labelOffset: {
-      x: center.x - curveMidpoint.x + delta.x,
-      y: rect.y - labelBaseTop(curveMidpoint.y, rect.height, bounds) + delta.y,
-    },
+    start: translate(arrow.start),
+    end: translate(arrow.end),
+    control: translate(arrow.control),
   };
-}
-
-function labelBaseTop(curveY: number, height: number, bounds?: Rect): number {
-  const above = curveY - height - CURVE_GAP;
-  const below = curveY + CURVE_GAP;
-  // Choose from the curve itself, never the dragged offset, so moving a badge cannot flip sides.
-  if (bounds && above < bounds.y && below + height <= bounds.y + bounds.height) return below;
-  return above;
 }
 
 function measureText(text: string, fontSize: number): number {

@@ -25,7 +25,7 @@ This is a manually installed Chrome MV3 extension, not a Chrome Web Store listin
 Other Chromium browsers are not yet independently tested. A [SHA-256 checksum](https://github.com/vitqst/vit-contextsnap/releases/download/v0.2.0/SHA256SUMS)
 is included with the release to verify the ZIP.
 
-## See the tools in action
+## See the released tools in action
 
 ### Point clearly with arrows and steps
 
@@ -88,7 +88,35 @@ open, paste/drop opens an image as the background.
 Chrome uses internal version `0.2.0.1` and displays `0.2.0-rc.1`. The numeric version
 orders this preview after the existing stable build without changing the stable release.
 
-## Editor tools
+## Unreleased — drawing refinements
+
+These changes are on the **local development branch only**. They are **not included in
+the public v0.2.0 or v0.2.0-rc.1 downloads** above.
+
+![Development editor showing attached arrow labels, an editable sticky card, and notes on shapes](docs/images/drawing-refinements.png)
+
+- **Attached arrow labels:** labels sit in a gap at the arrow's midpoint. Dragging a label
+  moves the whole arrow. Choose **Straight** or **Curved** for a new or selected arrow;
+  switching an existing arrow keeps its endpoints in place.
+- **Optional shadows:** **Shadow** defaults on for arrows and their labels, and for sticky
+  cards. Switch it off for a flat look. Other annotations and shape notes remain flat.
+- **Notes on shapes:** double-click a rectangle or any other shape to add or edit its note.
+  The note moves with its shape; Step notes sit below the circle, or above near the bottom
+  edge, keeping the number visible.
+- **Sticky notes — N:** place a colored card and type directly on it. Drag to move, use a
+  corner to resize, and double-click to edit again. Card text scales with resizing;
+  arrow labels and other text do not.
+- **Responsive free draw:** supported pens use contact pressure. Mouse input uses drawing
+  speed measured over elapsed time—faster strokes get thinner. Adjust **Smoothing**,
+  **Pressure influence**, and **Speed influence** for the selected stroke and subsequent
+  strokes. Set both influences to zero for constant width.
+
+These edits support undo/redo and flattened PNG/clipboard export. Export your work before
+closing or reloading the editor; editable objects remain local to the open session.
+
+## Released editor tools
+
+The following describes v0.2.0; RC-only additions are listed in the preview section above.
 
 - Visible and area capture, with resize handles, keyboard nudging, and cancellation.
 - Locked screenshot background and a compact editor inspired by Excalidraw.
@@ -112,8 +140,8 @@ orders this preview after the existing stable build without changing the stable 
 
 The approved scope is documented in [the design](docs/plans/2026-09-15-screenshot-editor-design.md).
 The [original requirements](docs/spec/20260915-init-requirement.md) remain the longer-term
-backlog. Live-page annotations/text output, full-page capture, advanced brush tools,
-localization, and Web Store publication are deferred.
+backlog. Live-page annotations/text output, full-page capture, localization, and Web Store
+publication are deferred. Pressure/speed brush controls are part of the unreleased changes above.
 
 ## Shortcuts
 

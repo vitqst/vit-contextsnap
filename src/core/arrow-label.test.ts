@@ -23,7 +23,7 @@ function expectInside(rect: Rect, bounds: Rect) {
 }
 
 describe('arrow label layout', () => {
-  it('places a tall top-edge label below the curve when it cannot fit above', () => {
+  it('clamps a tall attached label inside the screenshot at the top edge', () => {
     const topEdge: ArrowObject = {
       ...arrow,
       start: { x: 40, y: 30 },
@@ -34,11 +34,11 @@ describe('arrow label layout', () => {
     };
     const bounds = { x: 0, y: 0, width: 600, height: 400 };
     const layout = getArrowLabelLayout(topEdge, bounds);
-    expect(layout.rect.y).toBe(42);
+    expect(layout.rect.y).toBe(0);
     expectInside(layout.rect, bounds);
   });
 
-  it('keeps the chosen side stable while dragging a below-curve label', () => {
+  it('dragging an attached label translates every arrow point without detaching it', () => {
     const topEdge: ArrowObject = {
       ...arrow,
       start: { x: 40, y: 30 },
@@ -51,16 +51,38 @@ describe('arrow label layout', () => {
     const after = getArrowLabelLayout(dragged, bounds);
     expect(after.rect.y).toBe(before.rect.y + 90);
     expect(after.rect.x).toBe(before.rect.x + 15);
-    expect(dragged.labelOffset).toEqual({ x: 15, y: 90 });
+    expect(dragged.start).toEqual({ x: 55, y: 120 });
+    expect(dragged.control).toEqual({ x: 255, y: 120 });
+    expect(dragged.end).toEqual({ x: 455, y: 120 });
+    expect(dragged.labelOffset).toEqual({ x: 0, y: 0 });
+    expect(topEdge.start).toEqual({ x: 40, y: 30 });
   });
 
-  it('places the readable badge above the curve without changing its raw label anchor', () => {
+  it('centers the readable badge directly on its curve midpoint', () => {
     const layout = getArrowLabelLayout(arrow);
     expect(getArrowLabelPosition(arrow)).toEqual({ x: 400, y: 280 });
-    expect(layout.rect.y + layout.rect.height).toBe(268);
+    expect(layout.center).toEqual({ x: 400, y: 280 });
     expect(layout.fontSize).toBe(20);
     expect(layout.truncated).toBe(false);
     expect(layout.lines.join(' ')).toBe(arrow.label);
+  });
+
+  it('attaches a straight arrow label to its effective midpoint despite a retained bend', () => {
+    const straight: ArrowObject = { ...arrow, mode: 'straight' };
+    expect(getArrowLabelLayout(straight).center).toEqual({ x: 400, y: 240 });
+    expect(straight.control).toEqual({ x: 400, y: 320 });
+  });
+
+  it('ignores legacy label offsets so old labels cannot remain detached', () => {
+    const legacy = { ...arrow, labelOffset: { x: -1000, y: 300 } };
+    expect(getArrowLabelLayout(legacy)).toEqual(getArrowLabelLayout(arrow));
+    expect(legacy.labelOffset).toEqual({ x: -1000, y: 300 });
+  });
+
+  it('does not scale text when the arrow length changes', () => {
+    const longer = { ...arrow, end: { x: 1400, y: 240 } };
+    expect(getArrowLabelLayout(longer).fontSize).toBe(getArrowLabelLayout(arrow).fontSize);
+    expect(getArrowLabelLayout(longer).rect.width).toBe(getArrowLabelLayout(arrow).rect.width);
   });
 
   it('uses an explicit label font independently of stroke width', () => {
@@ -123,20 +145,29 @@ describe('arrow label layout', () => {
     expect(arrow.labelOffset).toEqual({ x: 0, y: 0 });
   });
 
-  it('moves a label immediately from its displayed clamped position', () => {
+  it('moves the arrow when dragging a crop-clamped label without writing a detached offset', () => {
     const bounds = { x: 100, y: 200, width: 500, height: 300 };
-    const clamped = { ...arrow, labelOffset: { x: -1000, y: -1000 } };
+    const clamped = {
+      ...arrow,
+      start: { x: -240, y: 0 },
+      control: { x: 0, y: 80 },
+      end: { x: 240, y: 0 },
+      labelOffset: { x: -1000, y: -1000 },
+    };
     const before = getArrowLabelLayout(clamped, bounds);
     expect(before.rect.x).toBe(bounds.x);
     expect(before.rect.y).toBe(bounds.y);
     const moved = moveArrowLabelBy(clamped, { x: 30, y: 40 }, bounds);
     const after = getArrowLabelLayout(moved, bounds);
-    expect(after.rect.x).toBe(before.rect.x + 30);
-    expect(after.rect.y).toBe(before.rect.y + 40);
+    expect(moved.start).toEqual({ x: -210, y: 40 });
+    expect(moved.control).toEqual({ x: 30, y: 120 });
+    expect(moved.end).toEqual({ x: 270, y: 40 });
+    expectInside(after.rect, bounds);
+    expect(moved.labelOffset).toEqual(clamped.labelOffset);
     expect(clamped.labelOffset).toEqual({ x: -1000, y: -1000 });
   });
 
-  it('corrects clamped label dragging with the cropped wrapping dimensions', () => {
+  it('preserves cropped wrapping while translating the attached arrow', () => {
     const bounds = { x: 200, y: 200, width: 180, height: 300 };
     const clamped = {
       ...arrow,
@@ -148,5 +179,6 @@ describe('arrow label layout', () => {
     const after = getArrowLabelLayout(moved, bounds);
     expect(after.rect.y).toBe(before.rect.y + 10);
     expect(after.lines).toEqual(before.lines);
+    expect(moved.control.y).toBe(clamped.control.y + 10);
   });
 });
