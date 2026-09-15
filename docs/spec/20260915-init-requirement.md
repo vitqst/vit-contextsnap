@@ -1,5 +1,12 @@
 # Product Requirements: Snap & Annotate for AI Agents
 
+> **Historical, superseded draft — not release guarantees.** The [README](../../README.md)
+> and [approved design](../plans/2026-09-15-screenshot-editor-design.md) describe the shipped
+> extension. Several features, permissions, and browser-support claims below are proposals
+> only. In particular, blur is **not secure redaction**, and screenshots do **not**
+> automatically exclude passwords or personal data. Use solid Redact and review exports.
+> The original draft body is retained as backlog and design history.
+
 **Type:** Browser extension (Chrome / Chromium-based: Chrome, Edge, Brave, Arc)
 **Version:** 1.2 draft
 **Status:** Proposed

@@ -83,13 +83,67 @@ test.describe('native Chrome capture commands', () => {
     context,
     extensionId,
     serviceWorker,
-  }) => {
+  }, testInfo) => {
     await page.goto('/capture.html');
     await page.bringToFront();
     await expect(page).toHaveTitle('ContextSnap capture fixture');
-    const pendingEditor = context.waitForEvent('page');
-    await invokeCapture(page, serviceWorker, 'capture-visible');
-    const editor = await pendingEditor;
+    await serviceWorker.evaluate(() => {
+      const probe = {
+        installedAt: Date.now(),
+        hadCommandListeners: chrome.commands.onCommand.hasListeners(),
+        received: [] as { command: string; at: number; tab?: chrome.tabs.Tab }[],
+      };
+      Object.assign(globalThis, { __contextsnapE2ECaptureProbe: probe });
+      chrome.commands.onCommand.addListener((command, tab) => {
+        probe.received.push({ command, at: Date.now(), tab });
+      });
+    });
+    let editor: Page;
+    try {
+      [editor] = await Promise.all([
+        context.waitForEvent('page', { timeout: 10_000 }),
+        invokeCapture(page, serviceWorker, 'capture-visible'),
+      ]);
+    } catch (error) {
+      // Preserve the real failure while recording which native/extension boundary was reached.
+      try {
+        const diagnostics = await Promise.allSettled([
+          serviceWorker.evaluate(async () => ({
+            probe: (globalThis as typeof globalThis & { __contextsnapE2ECaptureProbe?: unknown })
+              .__contextsnapE2ECaptureProbe,
+            session: await chrome.storage.session.get(null),
+            commands: await chrome.commands.getAll(),
+            tabs: await chrome.tabs.query({}),
+            windows: await chrome.windows.getAll(),
+          })),
+          page.evaluate(() => ({
+            url: location.href,
+            viewport: { width: innerWidth, height: innerHeight },
+            outer: { width: outerWidth, height: outerHeight },
+            devicePixelRatio,
+            hasFocus: document.hasFocus(),
+            visibility: document.visibilityState,
+          })),
+          run('xdotool', ['getwindowfocus', 'getwindowname'], { timeout: 2_000 }),
+        ]);
+        await testInfo.attach('visible-capture-diagnostics.json', {
+          body: JSON.stringify(
+            Object.fromEntries(
+              diagnostics.map((result, index) => [
+                ['extension', 'page', 'nativeFocus'][index],
+                result.status === 'fulfilled' ? result.value : { error: String(result.reason) },
+              ]),
+            ),
+            null,
+            2,
+          ),
+          contentType: 'application/json',
+        });
+      } catch (diagnosticError) {
+        console.error('Could not attach native capture diagnostics:', diagnosticError);
+      }
+      throw error;
+    }
     await expect(editor).toHaveURL(
       new RegExp(`chrome-extension://${extensionId}/editor.html(?:\\?capture=.*)?$`),
     );

@@ -103,6 +103,8 @@ test('Copy image writes an actual flattened PNG into the clipboard', async ({
   await dragOnCanvas(page, { x: 180, y: 180 }, { x: 500, y: 320 });
   await page.evaluate(() => navigator.clipboard.writeText('ContextSnap clipboard test'));
   await page.getByRole('button', { name: /^Copy image/ }).click();
+  // A click starts the asynchronous PNG write; reading sooner can invalidate ClipboardItem.
+  await expect(page.getByRole('status')).toHaveText('Image copied. Ready to paste.');
   await expect
     .poll(() =>
       page.evaluate(async () => {

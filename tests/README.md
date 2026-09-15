@@ -3,7 +3,7 @@
 Install dependencies and the test browser, then build the actual MV3 package:
 
 ```sh
-npm install
+npm ci
 npx playwright install chromium
 npm run build
 npm run test:e2e

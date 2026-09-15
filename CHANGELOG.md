@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Prepare the public source release: MIT license, bundled third-party notices,
+  contribution/security guidance, issue/PR templates, and least-privilege CI defaults.
+- Clarify the historical specification and actual screenshot/privacy limits.
+
 ## 0.2.0
 
 - Wrapped arrow labels, independent label sizing, image/crop-aware placement, and direct

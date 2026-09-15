@@ -1,8 +1,20 @@
 import { defineConfig } from 'wxt';
+import { resolve } from 'node:path';
 
 export default defineConfig({
   modules: ['@wxt-dev/module-react'],
   imports: false,
+  hooks: {
+    'build:publicAssets': (wxt, files) => {
+      files.push(
+        { absoluteSrc: resolve(wxt.config.root, 'LICENSE'), relativeDest: 'LICENSE.txt' },
+        {
+          absoluteSrc: resolve(wxt.config.root, 'THIRD_PARTY_NOTICES.md'),
+          relativeDest: 'THIRD_PARTY_NOTICES.txt',
+        },
+      );
+    },
+  },
   manifest: {
     name: 'ContextSnap — Screenshot & Draw',
     description:

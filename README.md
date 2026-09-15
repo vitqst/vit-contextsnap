@@ -7,6 +7,8 @@ All processing and image storage stay on your device.
 ## Install in Chrome
 
 ```sh
+git clone https://github.com/vitqst/vit-contextsnap.git
+cd vit-contextsnap
 npm ci
 npm run build
 ```
@@ -72,13 +74,16 @@ conflict; change extension shortcuts at `chrome://extensions/shortcuts`.
 ## Privacy and data lifetime
 
 - No telemetry, remote fonts, network services, or automatic uploads.
+- Captures include visible page content; passwords and personal information are not
+  automatically detected or excluded. Check your screenshot before sharing it.
 - Capturing runs only after an explicit extension action. Area-selection UI is removed
   after confirmation or cancellation; there is no always-on content script.
 - Temporary original captures are held in extension IndexedDB for handoff, then consumed
   when the editor opens. At most five abandoned captures are retained for up to an hour
   and pruned on the next storage operation. Editor originals and undo history live in RAM.
 - Recent stores **only flattened exported images**, capped at 20 images and a shared
-  100 MB storage budget. It retains the originating title/URL and capture time locally.
+  100 MB storage budget. It retains the originating title, full URL (including query and
+  fragment), and capture time locally. URLs may contain sensitive information too.
 - Redact paints solid black into exported pixels. Original source pixels and drawing
   objects are never embedded in exported PNGs. Undo can restore the original while the
   current editor is open; it cannot restore it from a flattened Recent export.
@@ -136,3 +141,21 @@ Web Store, and file URLs show an explicit unsupported message. Images are limite
 32 megapixels and 16,384 pixels per side. Imported files are limited to 50 MB.
 Very large or corrupt images report errors. Clipboard failures leave the editor usable
 with Download PNG available. Local editing is intended for desktop-sized windows.
+
+## Contributing and security
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup, verification, and design boundaries.
+Use [GitHub issues](https://github.com/vitqst/vit-contextsnap/issues) for bugs and focused
+feature proposals. Follow [SECURITY.md](SECURITY.md) for private vulnerability reports;
+never upload real secrets or private screenshots in public issues or test artifacts.
+
+## License and acknowledgments
+
+ContextSnap is available under the [MIT license](LICENSE). Bundled dependencies retain
+their own licenses; see [third-party notices](THIRD_PARTY_NOTICES.md). Builds and ZIPs
+include both license files. `private: true` in `package.json` only prevents accidental
+npm publication; it does not restrict use of this public source repository.
+
+The editor interaction is inspired by Excalidraw. ContextSnap is an independent project,
+not affiliated with or endorsed by Excalidraw or Google. It is not published in the
+Chrome Web Store yet.
