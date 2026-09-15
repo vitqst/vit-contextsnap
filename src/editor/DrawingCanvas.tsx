@@ -23,10 +23,18 @@ import {
 } from '../core/geometry';
 import { getArrowLabelLayout, hitTestArrowLabel, moveArrowLabelBy } from '../core/arrow-label';
 import { objectsInPaintOrder } from '../core/layers';
+import {
+  imageHandles,
+  hitTestImageHandle,
+  resizeImageRect,
+  type ImageHandle,
+} from '../core/image-geometry';
+import type { ImageAssets } from './image-assets';
 import { drawScene } from './render';
 
 interface Props {
   image: HTMLImageElement;
+  assets: ImageAssets;
   doc: EditorDocument;
   committed: EditorDocument;
   getCurrent: () => EditorDocument;
@@ -43,10 +51,11 @@ interface Props {
 }
 
 interface Gesture {
-  kind: 'draw' | 'move' | 'handle' | 'crop';
+  kind: 'draw' | 'move' | 'handle' | 'crop' | 'resize';
   start: Point;
   object?: DrawingObject;
   handle?: ArrowHandle;
+  imageHandle?: ImageHandle;
   doc: EditorDocument;
   latest: EditorDocument;
   moved: boolean;
@@ -112,12 +121,21 @@ function drawOverlay(
       ctx.stroke();
     });
   }
+  if (selected.type === 'image') {
+    const side = 9 / scale;
+    ctx.fillStyle = '#ffffff';
+    for (const point of Object.values(imageHandles(selected.rect))) {
+      ctx.fillRect(point.x - side / 2, point.y - side / 2, side, side);
+      ctx.strokeRect(point.x - side / 2, point.y - side / 2, side, side);
+    }
+  }
   ctx.restore();
 }
 
 export function DrawingCanvas(props: Props) {
   const {
     image,
+    assets,
     doc,
     getCurrent,
     tool,
@@ -143,7 +161,7 @@ export function DrawingCanvas(props: Props) {
       const overlay = overlayRef.current?.getContext('2d');
       if (ctx) {
         ctx.clearRect(0, 0, width, height);
-        drawScene(ctx, image, doc.objects, doc.crop ?? { x: 0, y: 0, width, height });
+        drawScene(ctx, image, doc.objects, doc.crop ?? { x: 0, y: 0, width, height }, assets);
       }
       if (overlay)
         drawOverlay(
@@ -156,7 +174,7 @@ export function DrawingCanvas(props: Props) {
         );
     });
     return () => cancelAnimationFrame(frame);
-  }, [doc, image, width, height, scale, selectedId]);
+  }, [doc, image, assets, width, height, scale, selectedId]);
 
   useEffect(() => {
     gesture.current = null;
@@ -198,6 +216,21 @@ export function DrawingCanvas(props: Props) {
     const sceneBounds = committed.crop ?? { x: 0, y: 0, width, height };
     if (tool === 'select') {
       const selected = committed.objects.find((object) => object.id === selectedId);
+      if (selected?.type === 'image') {
+        const handle = hitTestImageHandle(selected.rect, point, 11 / scale);
+        if (handle) {
+          gesture.current = {
+            kind: 'resize',
+            start: point,
+            object: selected,
+            imageHandle: handle,
+            doc: committed,
+            latest: committed,
+            moved: false,
+          };
+          return;
+        }
+      }
       if (selected?.type === 'arrow') {
         const handles = arrowHandles(selected, sceneBounds);
         const handle = handles.find(([, position]) => distance(point, position) < 11 / scale);
@@ -301,6 +334,12 @@ export function DrawingCanvas(props: Props) {
   function onPointerMove(event: ReactPointerEvent<HTMLCanvasElement>) {
     const active = gesture.current;
     if (!active) return;
+    // An async image insertion, undo, or property edit can invalidate a gesture's snapshot.
+    if (active.doc !== getCurrent()) {
+      gesture.current = null;
+      preview(null);
+      return;
+    }
     let point = pointAt(
       event.clientX,
       event.clientY,
@@ -315,6 +354,8 @@ export function DrawingCanvas(props: Props) {
       let object = active.object;
       if (active.kind === 'move') {
         object = moveObject(object, { x: point.x - active.start.x, y: point.y - active.start.y });
+      } else if (active.kind === 'resize' && object.type === 'image' && active.imageHandle) {
+        object = { ...object, rect: resizeImageRect(object.rect, active.imageHandle, point) };
       } else if (active.kind === 'handle' && object.type === 'arrow' && active.handle) {
         if (active.handle === 'control') {
           point = {
@@ -387,6 +428,7 @@ export function DrawingCanvas(props: Props) {
     if (!active) return;
     // Include the final pointer position even when no move was dispatched at that position.
     onPointerMove(event);
+    if (!gesture.current) return;
     gesture.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId))
       event.currentTarget.releasePointerCapture(event.pointerId);

@@ -57,6 +57,26 @@ not included in the exported image; flattened exports appear in local Recent his
 
 These are screenshots of the actual extension using fictional demo content.
 
+### Next update — available when building this branch
+
+The downloadable **v0.2.0 ZIP does not include these unreleased additions**:
+
+- **Back to website** keeps your editor and undo history open. It returns to the original
+  capture tab when that tab still shows the captured URL; otherwise it opens the saved URL.
+  Recent exports open their saved URL in a new tab. Local imports have no website button.
+- **Add image** inserts a local PNG, JPEG, or WebP icon/image as a selected layer. Paste or
+  drop into an open editor to add a layer; drop on the screenshot to place it there.
+  Drag to move and use a corner handle to resize with proportions locked.
+- **Send backward / Bring forward** reorder images among images and drawings among drawings.
+  Images stay below drawing annotations. Blur and magnifiers include inserted pixels;
+  solid redaction stays on top. Duplicate, delete, nudge, undo, copy, and download work too.
+
+Paste inside text fields remains ordinary text editing. **Open another image** still
+replaces the background and asks before discarding unexported work. With no screenshot
+open, paste/drop opens an image as the background.
+
+![Unreleased image-layer workflow with an imported icon, proportional resize controls, and a labeled arrow](docs/images/image-layers.png)
+
 ## Editor tools
 
 - Visible and area capture, with resize handles, keyboard nudging, and cancellation.
@@ -75,7 +95,8 @@ These are screenshots of the actual extension using fictional demo content.
 - Recolor, adjust thickness, move, duplicate, or delete selected objects.
 - Copy flattened PNGs directly to the clipboard; download PNG as a fallback.
 - Import/paste/drop PNG, JPEG, or WebP files. Importing a new image asks before replacing
-  work that has not been copied or downloaded.
+  work that has not been copied or downloaded in v0.2.0; see the unreleased additions above
+  for the new layer workflow.
 - Recent exports in the popup, with individual removal and Clear all.
 
 The approved scope is documented in [the design](docs/plans/2026-09-15-screenshot-editor-design.md).
@@ -127,6 +148,12 @@ conflict; change extension shortcuts at `chrome://extensions/shortcuts`.
   magnifiers, so adding a lens cannot uncover masked source details.
 - Copy and Download export the current canvas crop without selection handles or UI.
   Closing/reloading the editor discards its editable session; copy or download first.
+- In the unreleased layer workflow, inserted images stay in memory for the current
+  session, including undo/redo. Duplicates share the same decoded asset. Replacing the
+  screenshot or closing the editor releases those assets; Recent still stores only flattened PNGs.
+- Back to website is an explicit navigation action. It may open the locally saved full URL,
+  including its query/fragment, using ordinary browser navigation. No extra permissions,
+  background URL fetching, or browsing-history collection are added.
 - Removing the extension clears its local data. Browser storage can also be evicted;
   download anything you need to keep permanently.
 
@@ -182,6 +209,8 @@ To update the toolbar artwork, edit `public/icon.svg` then run
 To refresh the README screenshots after a build, run `node scripts/capture-readme.mjs`.
 It operates the real editor in a disposable browser using a fictional local fixture;
 the generated PNGs live in `docs/images/` and are not included in the extension ZIP.
+Use `node scripts/capture-readme.mjs --image-layers` to refresh only the unreleased
+image-layer example without replacing the v0.2.0 screenshots.
 
 ## Limits
 
@@ -190,6 +219,10 @@ Web Store, and file URLs show an explicit unsupported message. Images are limite
 32 megapixels and 16,384 pixels per side. Imported files are limited to 50 MB.
 Very large or corrupt images report errors. Clipboard failures leave the editor usable
 with Download PNG available. Local editing is intended for desktop-sized windows.
+The unreleased image-layer workflow allows 20 MB per inserted file and 16 megapixels of
+inserted assets per session, including undo history. Deleting a layer keeps its asset available
+for undo; start a new screenshot to release the budget. SVG, image URL fetching, and
+editable-layer persistence are not supported. Animated PNG/WebP inputs become a single still frame.
 
 ## Contributing and security
 

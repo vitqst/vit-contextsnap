@@ -74,6 +74,13 @@ export interface MagnifierObject extends ObjectBase {
   zoom: number;
 }
 
+/** Decoded pixels live in the editor-session asset registry, outside document history. */
+export interface ImageObject extends ObjectBase {
+  type: 'image';
+  assetId: string;
+  rect: Rect;
+}
+
 export type DrawingObject =
   | ArrowObject
   | PenObject
@@ -81,7 +88,8 @@ export type DrawingObject =
   | TextObject
   | StepObject
   | BlurObject
-  | MagnifierObject;
+  | MagnifierObject
+  | ImageObject;
 export type Tool =
   | 'select'
   | 'arrow'

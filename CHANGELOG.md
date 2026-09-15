@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Back to website preserves the editor tab and undo history; unavailable or changed source
+  tabs fall back to the saved HTTP(S) URL. Recent exports always reopen the saved URL.
+- Add local PNG/JPEG/WebP image layers with Add image, clipboard paste, or drag and drop.
+- Move and proportionally resize image layers; duplicate, delete, nudge, and undo/redo.
+- Send backward / Bring forward within consistent paint families. Images stay below
+  drawings and are included in blur, magnifier, redaction, clipboard, and PNG export.
+- Bound decoded image assets per session and share them across duplicate/history objects.
+- No new extension permissions, external services, or dependencies.
+
 ## 0.2.0 — First public release
 
 - Visible-page and selected-area capture in Chrome, with a dedicated screenshot editor.

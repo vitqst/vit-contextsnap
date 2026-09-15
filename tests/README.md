@@ -14,6 +14,9 @@ It verifies the packaged extension's editor, real PNG downloads, clipboard conte
 redaction pixels, cropping, wrapped arrow labels and geometry edits, undo, and object deletion.
 New-tool checks cover numbered steps, blur strength, circular magnifier sampling, and masks
 remaining covered regardless of whether a lens was added before or after the mask.
+Image-layer coverage checks insertion, clipboard paste, proportional resizing, layer order,
+undo/redo, and flattened pixels, including privacy effects over inserted images. Source
+navigation checks confirm the editor stays open and saved-URL fallbacks preserve its work.
 It never opens your normal Chrome profile. A small HTTP fixture server runs only on
 `127.0.0.1:4179` and stops when the test run finishes.
 

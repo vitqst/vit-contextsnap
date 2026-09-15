@@ -57,6 +57,23 @@
 .copy-button {
   margin-left: 6px;
 }
+.source-button,
+.add-image-button {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--ink);
+  padding: 8px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.source-button:hover,
+.add-image-button:hover {
+  background: #f4f1fa;
+}
+.source-button {
+  color: var(--accent);
+  margin-right: 5px;
+}
 .copy-button kbd {
   font-family: var(--font);
   font-size: 10px;
@@ -598,6 +615,9 @@
   z-index: 20;
 }
 @media (max-width: 1050px) {
+  .source-button span {
+    display: none;
+  }
   .document-name {
     max-width: 220px;
   }
@@ -615,6 +635,9 @@
   }
 }
 @media (max-width: 760px) {
+  .add-image-button span {
+    display: none;
+  }
   .editor-header {
     padding: 0 12px;
     gap: 12px;

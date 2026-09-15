@@ -1,6 +1,7 @@
 import type { EditorDocument } from '../core/model';
 import type { CaptureRecord } from '../platform/types';
 import { drawScene } from '../editor/render';
+import type { ImageAssets } from '../editor/image-assets';
 
 export const MAX_IMAGE_PIXELS = 32_000_000;
 export const MAX_IMAGE_SIDE = 16384;
@@ -32,7 +33,11 @@ export async function loadImage(blob: Blob): Promise<HTMLImageElement> {
   }
 }
 
-export async function flattenImage(image: HTMLImageElement, doc: EditorDocument): Promise<Blob> {
+export async function flattenImage(
+  image: HTMLImageElement,
+  doc: EditorDocument,
+  assets?: ImageAssets,
+): Promise<Blob> {
   const crop = doc.crop ?? { x: 0, y: 0, width: image.naturalWidth, height: image.naturalHeight };
   const canvas = document.createElement('canvas');
   canvas.width = Math.max(1, Math.round(crop.width));
@@ -40,7 +45,7 @@ export async function flattenImage(image: HTMLImageElement, doc: EditorDocument)
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('The image renderer could not start. Reopen the editor and try again.');
   ctx.translate(-crop.x, -crop.y);
-  drawScene(ctx, image, doc.objects, crop);
+  drawScene(ctx, image, doc.objects, crop, assets);
   // The independent export canvas contains no selection handles or editable scene metadata.
   return new Promise((resolve, reject) => {
     canvas.toBlob(

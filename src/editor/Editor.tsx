@@ -13,17 +13,22 @@ import {
 } from 'lucide-react';
 import {
   DEFAULT_STYLE,
+  newObjectBase,
   nextStepNumber,
   type DrawingObject,
   type EditorDocument,
   type ObjectStyle,
+  type Point,
   type Tool,
 } from '../core/model';
 import { moveObject } from '../core/geometry';
+import { placeImage } from '../core/image-geometry';
+import { canReorderObject, reorderObject } from '../core/layers';
 import { getArrowLabelLayout } from '../core/arrow-label';
 import { copyImage, downloadImage, exportFilename, flattenImage, loadImage } from '../export/image';
 import { listRecent, saveRecent, takeCapture } from '../platform/storage';
 import type { CaptureRecord } from '../platform/types';
+import { returnToWebsite, sourceWebsiteUrl } from '../platform/source-navigation';
 import { IconButton } from '../ui/IconButton';
 import { DrawingCanvas } from './DrawingCanvas';
 import { EditorFooter } from './EditorFooter';
@@ -32,6 +37,7 @@ import { EmptyState } from './EmptyState';
 import { Properties } from './Properties';
 import { Toolbar } from './Toolbar';
 import { useDocument } from './useDocument';
+import { ImageAssetStore } from './image-assets';
 
 const HINTS: Record<Tool, string> = {
   select: 'Click to select · Drag to move · Double-click to add a label',
@@ -71,13 +77,20 @@ export function Editor() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [inserting, setInserting] = useState(false);
+  const [returning, setReturning] = useState(false);
+  const [allowCaptureOpener, setAllowCaptureOpener] = useState(false);
   const [cancelToken, setCancelToken] = useState(0);
   const [dragOver, setDragOver] = useState(false);
   const [exportedDocument, setExportedDocument] = useState<EditorDocument | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const layerInput = useRef<HTMLInputElement>(null);
   const stage = useRef<HTMLDivElement>(null);
   const textInput = useRef<HTMLTextAreaElement>(null);
   const importGeneration = useRef(0);
+  const assetStore = useRef(new ImageAssetStore());
+  const insertionPending = useRef(false);
+  const navigationPending = useRef(false);
   const selected = state.doc.objects.find((object) => object.id === state.selectedId);
   const scale = zoom ?? fitScale;
   const hasTextDraft =
@@ -91,28 +104,40 @@ export function Editor() {
   const hasUnsavedWork = !!image && (state.committed !== exportedDocument || hasTextDraft);
 
   const openCapture = useCallback(
-    async (record: CaptureRecord) => {
+    async (record: CaptureRecord, freshCapture = false) => {
       const generation = ++importGeneration.current;
       setLoading(true);
       setError('');
       try {
         const decoded = await loadImage(record.image);
         if (generation !== importGeneration.current) return;
+        assetStore.current.dispose();
+        assetStore.current = new ImageAssetStore();
         state.reset();
         setExportedDocument(null);
         setCapture(record);
+        setAllowCaptureOpener(freshCapture && record.mode !== 'import');
         setImage(decoded);
         setTool('arrow');
         setZoom(null);
         setEditing(null);
         setCancelToken((n) => n + 1);
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : 'Could not open this image.');
+        if (generation === importGeneration.current)
+          setError(cause instanceof Error ? cause.message : 'Could not open this image.');
       } finally {
         if (generation === importGeneration.current) setLoading(false);
       }
     },
     [state.reset],
+  );
+
+  useEffect(
+    () => () => {
+      importGeneration.current++;
+      assetStore.current.dispose();
+    },
+    [],
   );
 
   const importFile = useCallback(
@@ -162,7 +187,7 @@ export function Editor() {
           throw new Error(
             'This capture has already been opened or has expired. Capture the page again, or open a recent export from the popup.',
           );
-        await openCapture(record);
+        await openCapture(record, !!id);
         window.history.replaceState(null, '', location.pathname);
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : 'Could not load this capture.');
@@ -283,6 +308,72 @@ export function Editor() {
     state.select(duplicate.id);
   }
 
+  function reorderSelected(direction: 'forward' | 'backward') {
+    if (!state.selectedId) return;
+    const current = state.getCurrent();
+    const objects = reorderObject(current.objects, state.selectedId, direction);
+    if (objects !== current.objects) state.commit({ ...current, objects });
+  }
+
+  async function backToWebsite() {
+    if (!capture || navigationPending.current) return;
+    navigationPending.current = true;
+    setReturning(true);
+    setError('');
+    try {
+      await returnToWebsite({ url: capture.url, allowCaptureOpener });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not return to the website.');
+    } finally {
+      navigationPending.current = false;
+      setReturning(false);
+    }
+  }
+
+  async function addImage(file: File, center?: Point) {
+    if (!image) {
+      await importFile(file);
+      return;
+    }
+    if (loading || busy || insertionPending.current) return;
+    const store = assetStore.current;
+    insertionPending.current = true;
+    setInserting(true);
+    setError('');
+    // End a draft/gesture before the async decode; commit against the latest document below.
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    setCancelToken((n) => n + 1);
+    state.preview(null);
+    try {
+      const asset = await store.add(file);
+      if (store !== assetStore.current) return;
+      const current = state.getCurrent();
+      const bounds = current.crop ?? {
+        x: 0,
+        y: 0,
+        width: image.naturalWidth,
+        height: image.naturalHeight,
+      };
+      const object: DrawingObject = {
+        ...newObjectBase(style),
+        type: 'image',
+        assetId: asset.id,
+        rect: placeImage(asset, bounds, center),
+      };
+      setCancelToken((n) => n + 1);
+      state.commit({ ...current, objects: [...current.objects, object] });
+      state.select(object.id);
+      setTool('select');
+      setMessage('Image added. Drag to move; use a corner to resize.');
+    } catch (cause) {
+      if (store === assetStore.current)
+        setError(cause instanceof Error ? cause.message : 'Could not add this image.');
+    } finally {
+      insertionPending.current = false;
+      setInserting(false);
+    }
+  }
+
   function startText(object: DrawingObject) {
     setEditing({
       object,
@@ -322,11 +413,11 @@ export function Editor() {
   }
 
   async function exportImage(action: 'copy' | 'download') {
-    if (!image || !capture || busy) return;
+    if (!image || !capture || busy || loading || insertionPending.current) return;
     setBusy(true);
     setError('');
     const snapshot = state.getCurrent();
-    const pending = flattenImage(image, snapshot);
+    const pending = flattenImage(image, snapshot, assetStore.current.assets);
     try {
       if (action === 'copy') await copyImage(pending);
       const blob = await pending;
@@ -441,12 +532,12 @@ export function Editor() {
       );
       if (file) {
         event.preventDefault();
-        void importFile(file);
+        void addImage(file);
       }
     };
     window.addEventListener('paste', paste);
     return () => window.removeEventListener('paste', paste);
-  }, [importFile]);
+  });
 
   const editingPoint =
     editing?.object.type === 'arrow'
@@ -476,7 +567,22 @@ export function Editor() {
         event.preventDefault();
         setDragOver(false);
         const file = event.dataTransfer.files[0];
-        if (file) void importFile(file);
+        if (file) {
+          const bounds = stage.current?.querySelector('canvas')?.getBoundingClientRect();
+          const center =
+            image &&
+            bounds &&
+            event.clientX >= bounds.left &&
+            event.clientX <= bounds.right &&
+            event.clientY >= bounds.top &&
+            event.clientY <= bounds.bottom
+              ? {
+                  x: ((event.clientX - bounds.left) * image.naturalWidth) / bounds.width,
+                  y: ((event.clientY - bounds.top) * image.naturalHeight) / bounds.height,
+                }
+              : undefined;
+          void addImage(file, center);
+        }
       }}
     >
       <input
@@ -491,10 +597,26 @@ export function Editor() {
           event.target.value = '';
         }}
       />
+      <input
+        className="sr-only"
+        ref={layerInput}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        aria-label="Add image file"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) void addImage(file);
+          event.target.value = '';
+        }}
+      />
       <EditorHeader
         captureTitle={capture?.title ?? null}
         hasImage={!!image}
-        busy={busy}
+        busy={busy || loading || inserting}
+        canReturn={!!image && capture?.mode !== 'import' && !!sourceWebsiteUrl(capture?.url)}
+        returning={returning}
+        onReturn={() => void backToWebsite()}
+        onAddImage={() => layerInput.current?.click()}
         onOpenImage={() => fileInput.current?.click()}
         onDownloadImage={() => void exportImage('download')}
         onCopyImage={() => void exportImage('copy')}
@@ -533,6 +655,13 @@ export function Editor() {
                 if (selected?.type === 'text') updateObject({ ...selected, fontSize });
               }}
               onUpdate={updateObject}
+              canBringForward={
+                !!selected && canReorderObject(state.doc.objects, selected.id, 'forward')
+              }
+              canSendBackward={
+                !!selected && canReorderObject(state.doc.objects, selected.id, 'backward')
+              }
+              onReorder={reorderSelected}
             />
             <div className="stage-scroll" ref={stage}>
               <div className="stage-content">
@@ -551,6 +680,7 @@ export function Editor() {
                   </div>
                   <DrawingCanvas
                     image={image}
+                    assets={assetStore.current.assets}
                     doc={state.doc}
                     committed={state.committed}
                     getCurrent={state.getCurrent}
@@ -659,15 +789,15 @@ export function Editor() {
           {message}
         </div>
       )}
-      {loading && image && (
+      {(loading || inserting) && image && (
         <div className="loading-strip" role="status">
-          Opening image…
+          {inserting ? 'Adding image…' : 'Opening image…'}
         </div>
       )}
       {dragOver && (
         <div className="drop-overlay">
           <ImagePlus size={38} />
-          <strong>Drop your screenshot here</strong>
+          <strong>{image ? 'Drop to add an image layer' : 'Drop your screenshot here'}</strong>
         </div>
       )}
     </div>

@@ -154,6 +154,116 @@ test.describe('native Chrome capture commands', () => {
     const png = await inspectPng(editor, await downloadPng(editor), [{ x: 20, y: 20 }]);
     expect(png).toMatchObject({ width: 1440, height: 1000 });
     expect(png.pixels).toEqual([[23, 32, 51, 255]]);
+
+    const sourceUrl = page.url();
+    const sourceId = await editor.evaluate(async () => {
+      const current = await chrome.tabs.getCurrent();
+      if (current?.openerTabId === undefined) throw new Error('Capture has no real opener');
+      return current.openerTabId;
+    });
+    await test.step('Back reactivates the original tab and preserves annotation and undo', async () => {
+      await expect(
+        editor.getByRole('button', { name: 'Back to website', exact: true }),
+      ).toBeVisible({
+        timeout: 1_500,
+      });
+      const canvas = await editor.getByTestId('drawing-canvas').boundingBox();
+      if (!canvas) throw new Error('Capture canvas missing');
+      await editor.keyboard.down('Shift');
+      await editor.mouse.move(canvas.x + canvas.width * 0.2, canvas.y + canvas.height * 0.2);
+      await editor.mouse.down();
+      await editor.mouse.move(canvas.x + canvas.width * 0.6, canvas.y + canvas.height * 0.4);
+      await editor.mouse.up();
+      await editor.keyboard.up('Shift');
+      const label = editor.getByRole('textbox', { name: 'Arrow label', exact: true });
+      await label.fill('Original note');
+      await label.blur();
+      await editor.mouse.dblclick(canvas.x + canvas.width * 0.4, canvas.y + canvas.height * 0.3);
+      await editor.getByRole('textbox', { name: 'Edit label', exact: true }).fill('Keep this note');
+      const pageCount = context.pages().length;
+      await editor.getByRole('button', { name: 'Back to website', exact: true }).click();
+      await expect
+        .poll(() =>
+          serviceWorker.evaluate(async () => {
+            const [active] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+            return active?.id;
+          }),
+        )
+        .toBe(sourceId);
+      expect(context.pages()).toHaveLength(pageCount);
+      expect(editor.isClosed()).toBe(false);
+      await editor.bringToFront();
+      await expect(editor.getByTestId('object-count')).toHaveText('1 object');
+      await expect(label).toHaveValue('Keep this note');
+      await editor.getByRole('button', { name: 'Undo', exact: true }).click();
+      await expect(label).toHaveValue('Original note');
+      await editor.getByRole('button', { name: 'Redo', exact: true }).click();
+      await expect(label).toHaveValue('Keep this note');
+    });
+
+    await test.step('Recent ignores even a readable matching incidental opener', async () => {
+      const recentId = await editor.evaluate(async () => {
+        const database = await new Promise<IDBDatabase>((resolve, reject) => {
+          const request = indexedDB.open('contextsnap-captures', 1);
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+        try {
+          return await new Promise<string>((resolve, reject) => {
+            const request = database.transaction('recent').objectStore('recent').getAllKeys();
+            request.onsuccess = () => resolve(String(request.result[0]));
+            request.onerror = () => reject(request.error);
+          });
+        } finally {
+          database.close();
+        }
+      });
+      const [recentEditor] = await Promise.all([
+        context.waitForEvent('page'),
+        editor.evaluate(
+          ({ sourceId, recentId }) =>
+            chrome.tabs.create({
+              url: chrome.runtime.getURL(`editor.html?recent=${recentId}`),
+              openerTabId: sourceId,
+            }),
+          { sourceId, recentId },
+        ),
+      ]);
+      await expect(recentEditor.getByTestId('drawing-canvas')).toBeVisible();
+      expect(
+        await recentEditor.evaluate(async (id) => (await chrome.tabs.get(id)).url, sourceId),
+      ).toBe(sourceUrl);
+      const [website] = await Promise.all([
+        context.waitForEvent('page'),
+        recentEditor.getByRole('button', { name: 'Back to website', exact: true }).click(),
+      ]);
+      await expect(website).toHaveURL(sourceUrl);
+      expect(recentEditor.isClosed()).toBe(false);
+    });
+
+    await test.step('changed and closed original tabs reopen the saved URL without losing work', async () => {
+      await page.goto(`${sourceUrl}?changed=1`);
+      await editor.bringToFront();
+      const [changedFallback] = await Promise.all([
+        context.waitForEvent('page'),
+        editor.getByRole('button', { name: 'Back to website', exact: true }).click(),
+      ]);
+      await expect(changedFallback).toHaveURL(sourceUrl);
+      await expect(page).toHaveURL(`${sourceUrl}?changed=1`);
+      await page.close();
+      await editor.bringToFront();
+      const [closedFallback] = await Promise.all([
+        context.waitForEvent('page'),
+        editor.getByRole('button', { name: 'Back to website', exact: true }).click(),
+      ]);
+      await expect(closedFallback).toHaveURL(sourceUrl);
+      expect(editor.isClosed()).toBe(false);
+      await editor.bringToFront();
+      await expect(editor.getByTestId('object-count')).toHaveText('1 object');
+      await expect(editor.getByRole('textbox', { name: 'Arrow label', exact: true })).toHaveValue(
+        'Keep this note',
+      );
+    });
   });
 
   test('area capture excludes the picker overlay and Escape cancels a new selection', async ({

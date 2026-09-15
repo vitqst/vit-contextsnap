@@ -6,6 +6,7 @@ import type {
   Rect,
   RectangleObject,
 } from '../core/model';
+import type { ImageAssets } from './image-assets';
 
 interface ImageSize {
   width: number;
@@ -72,13 +73,19 @@ export function drawRedaction(ctx: CanvasRenderingContext2D, rect: Rect): void {
 export function getEffectSource(
   image: CanvasImageSource,
   objects: readonly DrawingObject[],
+  assets?: ImageAssets,
 ): CanvasImageSource {
+  const images = objects.filter((object) => object.type === 'image');
+  // Validate even on cache hits: export must never silently omit an unavailable asset.
+  for (const object of images)
+    if (!assets?.has(object.assetId))
+      throw new Error('An inserted image is unavailable. Reopen the screenshot and add it again.');
   const redactions = objects.filter(
     (object): object is RectangleObject => object.type === 'redact',
   );
   const blurs = objects.filter((object): object is BlurObject => object.type === 'blur');
   const hasLens = objects.some((object) => object.type === 'magnifier');
-  if (!blurs.length && (!hasLens || !redactions.length)) {
+  if (!images.length && !blurs.length && (!hasLens || !redactions.length)) {
     const previous = sanitizedSources.get(image);
     if (previous) {
       previous.canvas.width = 1;
@@ -91,6 +98,7 @@ export function getEffectSource(
   const signature = JSON.stringify([
     size.width,
     size.height,
+    images.map((object) => [object.assetId, object.rect]),
     redactions.map((object) => object.rect),
     blurs.map((object) => [object.rect, blurStrength(object.strength)]),
   ]);
@@ -103,6 +111,11 @@ export function getEffectSource(
   if (!ctx) throw new Error('The image effects renderer could not start. Try a smaller image.');
   ctx.clearRect(0, 0, size.width, size.height);
   ctx.drawImage(image, 0, 0);
+  for (const object of images) {
+    const asset = assets!.get(object.assetId)!;
+    const { x, y, width, height } = object.rect;
+    ctx.drawImage(asset.source, x, y, width, height);
+  }
   // Remove secrets before ANY filter samples neighboring pixels.
   for (const object of redactions) drawRedaction(ctx, object.rect);
   for (const object of blurs) drawBlurPatch(ctx, canvas, object, size);

@@ -16,6 +16,7 @@ import {
   type ArrowObject,
   type BlurObject,
   type DrawingObject,
+  type ImageObject,
   type MagnifierObject,
   type StepObject,
 } from './model';
@@ -98,6 +99,35 @@ describe('quadratic arrow geometry', () => {
 });
 
 describe('other drawing geometry', () => {
+  const image: ImageObject = {
+    id: 'image',
+    seed: 1,
+    style: { ...arrow.style, width: 16 },
+    type: 'image',
+    assetId: 'asset-1',
+    rect: { x: 20, y: 30, width: 80, height: 40 },
+  };
+
+  it('bounds image objects by their displayed rectangle without stroke padding', () => {
+    expect(objectBounds(image)).toEqual(image.rect);
+  });
+
+  it('moves image objects without changing their asset or mutating the source', () => {
+    const original = structuredClone(image);
+    expect(moveObject(image, { x: 15, y: -10 })).toEqual({
+      ...image,
+      rect: { x: 35, y: 20, width: 80, height: 40 },
+    });
+    expect(image).toEqual(original);
+  });
+
+  it('hits the full image rectangle with only the requested hit tolerance', () => {
+    expect(hitTestObject(image, { x: 60, y: 50 }, 0)).toBe(true);
+    expect(hitTestObject(image, { x: 101, y: 50 }, 0)).toBe(false);
+    expect(hitTestObject(image, { x: 103, y: 50 }, 4)).toBe(true);
+    expect(hitTestObject(image, { x: 105, y: 50 }, 4)).toBe(false);
+  });
+
   it('selects and translates numbered steps without mutating their numbers', () => {
     const step: StepObject = {
       id: 'step',

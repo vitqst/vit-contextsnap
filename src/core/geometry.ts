@@ -79,6 +79,7 @@ export function moveObject<T extends DrawingObject>(object: T, delta: Point): T 
     case 'rectangle':
     case 'redact':
     case 'blur':
+    case 'image':
       return { ...object, rect: { ...object.rect, ...add(object.rect, delta) } };
   }
 }
@@ -142,6 +143,7 @@ export function objectBounds(object: DrawingObject, sceneBounds?: Rect): Rect {
       );
     case 'redact':
     case 'blur':
+    case 'image':
       return { ...object.rect };
   }
 }
@@ -195,6 +197,7 @@ export function hitTestObject(
     case 'text':
     case 'redact':
     case 'blur':
+    case 'image':
       return true;
     case 'step':
     case 'magnifier':

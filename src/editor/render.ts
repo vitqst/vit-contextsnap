@@ -13,6 +13,7 @@ import type {
   TextObject,
 } from '../core/model';
 import { drawMagnifier, drawRedaction, getEffectSource, sourceImageSize } from './render-effects';
+import type { ImageAssets } from './image-assets';
 
 const FONT_FAMILY = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 
@@ -22,6 +23,7 @@ export function drawScene(
   image: CanvasImageSource,
   objects: readonly DrawingObject[],
   sceneBounds?: Rect,
+  assets?: ImageAssets,
 ): void {
   ctx.save();
   ctx.globalAlpha = 1;
@@ -32,7 +34,7 @@ export function drawScene(
   ctx.resetTransform();
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   ctx.restore();
-  const source = getEffectSource(image, objects);
+  const source = getEffectSource(image, objects, assets);
   const bounds = sceneBounds ?? { x: 0, y: 0, ...sourceImageSize(image) };
   ctx.drawImage(source, 0, 0);
   // The same layer order drives hit testing. Lenses see the sanitized screenshot;
@@ -40,7 +42,7 @@ export function drawScene(
   for (const object of objectsInPaintOrder(objects)) {
     if (object.type === 'magnifier') drawMagnifier(ctx, source, object);
     else if (object.type === 'redact') drawRedaction(ctx, object.rect);
-    else if (object.type !== 'blur') drawObject(ctx, object, bounds);
+    else if (object.type !== 'blur' && object.type !== 'image') drawObject(ctx, object, bounds);
   }
   ctx.restore();
 }
@@ -85,6 +87,7 @@ export function drawObject(
       break;
     case 'blur':
     case 'magnifier':
+    case 'image':
       // Image effects need the sanitized source and are composed by drawScene.
       break;
     case 'text':

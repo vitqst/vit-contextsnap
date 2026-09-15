@@ -1,4 +1,4 @@
-import { Copy, Trash2 } from 'lucide-react';
+import { Copy, Trash2, BringToFront, SendToBack } from 'lucide-react';
 import type { DrawingObject, ObjectStyle, Tool } from '../core/model';
 import { IconButton } from '../ui/IconButton';
 import { EffectsProperties } from './EffectsProperties';
@@ -14,6 +14,9 @@ interface Props {
   onDuplicate: () => void;
   onFontSize: (value: number) => void;
   onUpdate: (object: DrawingObject) => void;
+  canBringForward: boolean;
+  canSendBackward: boolean;
+  onReorder: (direction: 'forward' | 'backward') => void;
 }
 
 export function Properties({
@@ -26,6 +29,9 @@ export function Properties({
   onDuplicate,
   onFontSize,
   onUpdate,
+  canBringForward,
+  canSendBackward,
+  onReorder,
 }: Props) {
   const type = selected?.type ?? tool;
   if (type === 'select' || type === 'crop') return null;
@@ -36,7 +42,7 @@ export function Properties({
         {type === 'redact' ? 'Redaction' : type[0]!.toUpperCase() + type.slice(1)}
         <span>{selected ? 'Selected' : 'Style'}</span>
       </div>
-      {!isRedact && type !== 'blur' && (
+      {!isRedact && type !== 'blur' && type !== 'image' && (
         <>
           <label className="property-label">{type === 'step' ? 'Fill' : 'Stroke'}</label>
           <div className="color-row">
@@ -120,6 +126,16 @@ export function Properties({
           pixels.
         </p>
       )}
+      {selected?.type === 'image' && (
+        <>
+          <p className="property-label" aria-label="Image dimensions">
+            {Math.round(selected.rect.width)} × {Math.round(selected.rect.height)} px
+          </p>
+          <p className="property-note">
+            Drag to move. Drag a corner to resize; proportions stay locked.
+          </p>
+        </>
+      )}
       {selected && <EffectsProperties selected={selected} onUpdate={onUpdate} />}
       {type === 'blur' && (
         <p className="property-note">
@@ -181,15 +197,35 @@ export function Properties({
         </div>
       )}
       {selected && (
-        <div className="object-actions">
-          <span>Object</span>
-          <IconButton label="Duplicate object" onClick={onDuplicate}>
-            <Copy size={15} />
-          </IconButton>
-          <IconButton label="Delete object" onClick={onDelete}>
-            <Trash2 size={15} />
-          </IconButton>
-        </div>
+        <>
+          <div className="object-actions layer-actions">
+            <span>Layer</span>
+            <IconButton
+              label="Send backward"
+              disabled={!canSendBackward}
+              onClick={() => onReorder('backward')}
+            >
+              <SendToBack size={15} />
+            </IconButton>
+            <IconButton
+              label="Bring forward"
+              disabled={!canBringForward}
+              onClick={() => onReorder('forward')}
+            >
+              <BringToFront size={15} />
+            </IconButton>
+          </div>
+          <p className="property-note">Images stay below drawings. Redaction stays on top.</p>
+          <div className="object-actions">
+            <span>Object</span>
+            <IconButton label="Duplicate object" onClick={onDuplicate}>
+              <Copy size={15} />
+            </IconButton>
+            <IconButton label="Delete object" onClick={onDelete}>
+              <Trash2 size={15} />
+            </IconButton>
+          </div>
+        </>
       )}
       {type === 'arrow' && (
         <p className="property-note">
