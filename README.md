@@ -57,17 +57,26 @@ not included in the exported image; flattened exports appear in local Recent his
 
 These are screenshots of the actual extension using fictional demo content.
 
-### Optional preview — v0.2.0-rc.1
+### Optional preview — v0.2.0-rc.2
 
-The stable **v0.2.0 download above remains the default**. The optional **v0.2.0-rc.1**
-prerelease previews newer changes; it does not replace the existing stable release.
+The stable **v0.2.0 download above remains the default**. The optional **v0.2.0-rc.2**
+prerelease adds drawing refinements and includes the image-layer and navigation features
+from rc.1.
 
-[Preview ZIP](https://github.com/vitqst/vit-contextsnap/releases/download/v0.2.0-rc.1/contextsnap-0.2.0-rc.1-chrome.zip)
-· [Preview notes](docs/releases/0.2.0-rc.1.md)
-· [Preview SHA256SUMS](https://github.com/vitqst/vit-contextsnap/releases/download/v0.2.0-rc.1/SHA256SUMS)
+[Preview ZIP](https://github.com/vitqst/vit-contextsnap/releases/download/v0.2.0-rc.2/contextsnap-0.2.0-rc.2-chrome.zip)
+· [Preview notes](docs/releases/0.2.0-rc.2.md)
+· [Preview SHA256SUMS](https://github.com/vitqst/vit-contextsnap/releases/download/v0.2.0-rc.2/SHA256SUMS)
 
-Use the same unzip and **Load unpacked** instructions above. These additions are in
-the RC preview, **not the stable v0.2.0 ZIP**:
+Use Chrome/Chromium 120 or later and the same unzip and **Load unpacked** instructions
+above; other Chromium browsers have not been independently tested. To update an existing
+unpacked installation, **copy or download open work first**, replace the files in its
+folder with the extracted rc.2 files, then click **Reload** at `chrome://extensions`.
+Reopen the editor after updating. If you load the preview from a separate folder, enable
+only one ContextSnap version to avoid shortcut conflicts.
+
+These additions are in the RC preview, **not the stable v0.2.0 ZIP**.
+
+#### Image layers and navigation, included from rc.1
 
 - **Back to website** keeps your editor and undo history open. It returns to the original
   capture tab when that tab still shows the captured URL; otherwise it opens the saved URL.
@@ -83,23 +92,19 @@ Paste inside text fields remains ordinary text editing. **Open another image** s
 replaces the background and asks before discarding unexported work. With no screenshot
 open, paste/drop opens an image as the background.
 
-![v0.2.0-rc.1 preview image-layer workflow with an imported icon, proportional resize controls, and a labeled arrow](docs/images/image-layers.png)
+![RC preview image-layer workflow with an imported icon, proportional resize controls, and a labeled arrow](docs/images/image-layers.png)
 
-Chrome uses internal version `0.2.0.1` and displays `0.2.0-rc.1`. The numeric version
-orders this preview after the existing stable build without changing the stable release.
+#### Drawing refinements in rc.2
 
-## Unreleased — drawing refinements
-
-These changes are on the **local development branch only**. They are **not included in
-the public v0.2.0 or v0.2.0-rc.1 downloads** above.
-
-![Development editor showing attached arrow labels, an editable sticky card, and notes on shapes](docs/images/drawing-refinements.png)
+![v0.2.0-rc.2 preview showing an attached arrow label, an editable sticky card, and a note on a rectangle](docs/images/drawing-refinements.png)
 
 - **Attached arrow labels:** labels sit in a gap at the arrow's midpoint. Dragging a label
   moves the whole arrow. Choose **Straight** or **Curved** for a new or selected arrow;
-  switching an existing arrow keeps its endpoints in place.
-- **Optional shadows:** **Shadow** defaults on for arrows and their labels, and for sticky
-  cards. Switch it off for a flat look. Other annotations and shape notes remain flat.
+  switching an existing arrow keeps its endpoints in place. Label font size stays fixed
+  when the arrow length changes; long labels wrap.
+- **Optional shadows:** one shared **Shadow** toggle controls an arrow and its label;
+  sticky cards have their own toggle. Both default on. Switch off for a flat look.
+  Other annotations and shape notes remain flat.
 - **Notes on shapes:** double-click a rectangle or any other shape to add or edit its note.
   The note moves with its shape; Step notes sit below the circle, or above near the bottom
   edge, keeping the number visible.
@@ -110,9 +115,17 @@ the public v0.2.0 or v0.2.0-rc.1 downloads** above.
   speed measured over elapsed time—faster strokes get thinner. Adjust **Smoothing**,
   **Pressure influence**, and **Speed influence** for the selected stroke and subsequent
   strokes. Set both influences to zero for constant width.
+- **Cleaner extension startup:** removes JavaScript module preload hints that caused
+  Chrome's cross-world resource mismatch and unused-preload warnings.
+
+![v0.2.0-rc.2 preview with text being edited directly on a sticky card](docs/images/sticky-editing.png)
 
 These edits support undo/redo and flattened PNG/clipboard export. Export your work before
 closing or reloading the editor; editable objects remain local to the open session.
+No new extension permissions are required.
+
+Chrome uses internal version `0.2.0.2` and displays `0.2.0-rc.2`. The numeric version
+orders this preview after both the existing stable build and rc.1.
 
 ## Released editor tools
 
@@ -141,7 +154,7 @@ The following describes v0.2.0; RC-only additions are listed in the preview sect
 The approved scope is documented in [the design](docs/plans/2026-09-15-screenshot-editor-design.md).
 The [original requirements](docs/spec/20260915-init-requirement.md) remain the longer-term
 backlog. Live-page annotations/text output, full-page capture, localization, and Web Store
-publication are deferred. Pressure/speed brush controls are part of the unreleased changes above.
+publication are deferred. Pressure/speed brush controls are part of the rc.2 preview above.
 
 ## Shortcuts
 
@@ -152,6 +165,7 @@ publication are deferred. Pressure/speed brush controls are part of the unreleas
 | Capture visible page                                    | Alt+Shift+V                                 |
 | Select / Arrow / Pen / Rectangle / Text / Redact / Crop | V / A / P / R / T / X / C                   |
 | Step / Magnifier / Blur                                 | S / M / B                                   |
+| Sticky note (rc.2 preview)                              | N                                           |
 | Straight arrow or square rectangle                      | Hold Shift while drawing                    |
 | Undo / Redo                                             | Ctrl+Z / Ctrl+Shift+Z (Cmd on macOS)        |
 | Copy image                                              | Ctrl+C (Cmd on macOS)                       |

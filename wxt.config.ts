@@ -17,8 +17,8 @@ export default defineConfig({
   },
   manifest: {
     // Chrome requires a numeric version; preserve the requested RC label for display.
-    version: '0.2.0.1',
-    version_name: '0.2.0-rc.1',
+    version: '0.2.0.2',
+    version_name: '0.2.0-rc.2',
     name: 'ContextSnap — Screenshot & Draw',
     description:
       'Capture a page, point out the details, and copy a polished screenshot. Everything stays local.',

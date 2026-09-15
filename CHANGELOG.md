@@ -2,11 +2,19 @@
 
 ## Unreleased
 
-Local development changes only; not included in the public v0.2.0 or v0.2.0-rc.1 ZIPs.
+No changes yet.
+
+## 0.2.0-rc.2 — Prerelease preview
+
+This optional preview includes the rc.1 image-layer and Back to website features plus
+the drawing refinements below. Public v0.2.0 remains the stable default download.
+Chrome uses numeric version `0.2.0.2` and display name `0.2.0-rc.2`.
 
 - Attach arrow labels in a midpoint gap; dragging a label moves its whole arrow. Add
   Straight/Curved controls for new and existing arrows without moving their endpoints.
-- Add a default-on Shadow toggle for arrows and their labels, and for sticky cards.
+  Arrow label font size stays fixed as arrow length changes; long labels wrap.
+- Add a shared default-on Shadow toggle for each arrow and its label, and a separate
+  default-on toggle for sticky cards.
   Other annotations and shape notes stay flat.
 - Double-click shapes to add or edit an attached note. Step notes stay clear of the numbered
   circle, moving above it near the bottom edge.
@@ -19,6 +27,8 @@ Local development changes only; not included in the public v0.2.0 or v0.2.0-rc.1
 - Disable generated JavaScript module preload hints in extension pages to avoid Chrome's
   cross-world resource mismatch and unused-preload warnings. Normal module imports and
   stylesheets remain bundled locally; no permissions change.
+
+See [preview notes and installation/update instructions](docs/releases/0.2.0-rc.2.md).
 
 ## 0.2.0-rc.1 — Prerelease preview
 

@@ -5,8 +5,8 @@ import { join, resolve } from 'node:path';
 test('release candidate has a Chrome-compatible build version and visible RC label', async () => {
   const manifest = JSON.parse(await readFile(resolve('.output/chrome-mv3/manifest.json'), 'utf8'));
   const pkg = JSON.parse(await readFile(resolve('package.json'), 'utf8'));
-  expect(pkg.version).toBe('0.2.0-rc.1');
-  expect(manifest.version).toBe('0.2.0.1');
+  expect(pkg.version).toBe('0.2.0-rc.2');
+  expect(manifest.version).toBe('0.2.0.2');
   expect(manifest.version_name).toBe(pkg.version);
 });
 
