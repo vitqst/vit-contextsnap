@@ -9,6 +9,7 @@ export default tseslint.config(
       'node_modules/**',
       'test-results/**',
       'playwright-report/**',
+      '.worktrees/**',
     ],
   },
   js.configs.recommended,
