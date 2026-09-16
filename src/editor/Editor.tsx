@@ -432,10 +432,37 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
   }, [platform]);
 
   function updateObject(object: DrawingObject) {
+    // A property pointer event can immediately follow the inline editor's blur.
+    // Read its synchronous commit rather than the previous React render.
+    const current = state.getCurrent();
     state.commit({
-      ...state.committed,
-      objects: state.committed.objects.map((item) => (item.id === object.id ? object : item)),
+      ...current,
+      objects: current.objects.map((item) => (item.id === object.id ? object : item)),
     });
+  }
+
+  function changeFontSize(fontSize: number | null, preview = false) {
+    if (fontSize === null) {
+      if (preview) state.preview(null);
+      return;
+    }
+    const current = state.getCurrent();
+    const object = current.objects.find((item) => item.id === selected?.id);
+    if (!object) return;
+    // A native IME may commit its final character when the slider takes focus.
+    // Change only typography on the latest object, never its captured text draft.
+    const next: DrawingObject =
+      object.type === 'sticky'
+        ? { ...object, fontSize, fontSizing: 'manual' }
+        : object.type === 'text'
+          ? { ...object, fontSize }
+          : { ...object, labelFontSize: fontSize };
+    const document = {
+      ...current,
+      objects: current.objects.map((item) => (item.id === next.id ? next : item)),
+    };
+    if (preview) state.preview(document);
+    else state.commit(document);
   }
 
   function changeStyle(change: Partial<ObjectStyle>) {
@@ -938,10 +965,15 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
                 }}
                 onDelete={deleteSelected}
                 onDuplicate={duplicateSelected}
-                onFontSize={(fontSize) => {
-                  if (selected?.type === 'text') updateObject({ ...selected, fontSize });
-                }}
+                onFontSize={(fontSize) => changeFontSize(fontSize)}
                 onUpdate={updateObject}
+                onPreviewFontSize={(fontSize) => changeFontSize(fontSize, true)}
+                onAutoFontSize={() => {
+                  const object = state
+                    .getCurrent()
+                    .objects.find((item) => item.id === selected?.id);
+                  if (object?.type === 'sticky') updateObject({ ...object, fontSizing: 'auto' });
+                }}
                 brush={selected?.type === 'pen' ? normalizeBrush(selected.brush) : brush}
                 onBrush={(value) => {
                   setBrush(value);

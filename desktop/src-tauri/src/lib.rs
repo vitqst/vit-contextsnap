@@ -3,6 +3,8 @@ mod activation;
 mod capture;
 mod clipboard;
 mod image_io;
+#[cfg(target_os = "linux")]
+mod ime;
 mod lifecycle;
 mod png;
 
@@ -160,6 +162,11 @@ pub fn run() {
                 }
             };
             app.manage(lifecycle::TrayState::new(created));
+            #[cfg(target_os = "linux")]
+            if let Some(window) = app.get_webview_window("main") {
+                // Runs on the UI thread, after Wry has applied its default settings.
+                window.with_webview(|webview| ime::enable_inline_preedit(&webview.inner()))?;
+            }
             if cfg!(target_os = "macos") {
                 install_macos_menu(app)?;
             }

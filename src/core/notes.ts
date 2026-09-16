@@ -18,6 +18,8 @@ import {
 } from './model';
 
 export const NOTE_FONT_FAMILY = LABEL_FONT_FAMILY;
+export const MIN_STICKY_FONT_SIZE = 8;
+export const MAX_STICKY_FONT_SIZE = 2048;
 
 /** Inline editing and the flattened card must use the same readable foreground. */
 export function stickyTextColor(color: string): string {
@@ -64,7 +66,9 @@ export function getNoteLayout(object: DrawingObject, bounds?: Rect): NoteLayout 
   const padding = object.type === 'sticky' ? 14 : 8;
   const width = Math.max(0, visible.width - padding * 2);
   const height = Math.max(0, visible.height - padding * 2);
-  const preferredSize = boundedFontSize(object.fontSize);
+  const preferredSize = boundedFontSize(
+    object.fontSizing === 'manual' ? object.fontSize : Math.floor(height / 1.3),
+  );
   const center = { x: visible.x + visible.width / 2, y: visible.y + visible.height / 2 };
   const rect = { x: center.x - width / 2, y: center.y - height / 2, width, height };
   const fitted = fitStickyText(objectText(object), width, height, preferredSize);
@@ -123,7 +127,7 @@ function fitStickyText(
   if (!preferred.truncated) return remember(preferred);
   // Search a bounded range, not one layout per font pixel or per typed character.
   // Keep the user's preferred size stored, so deleting text restores readability.
-  let lower = 8;
+  let lower = MIN_STICKY_FONT_SIZE;
   let upper = Math.floor(preferredSize);
   let fitted = layoutAt(lower);
   if (fitted.truncated) return remember(fitted);
@@ -280,10 +284,11 @@ export function createSticky(point: Point, style: ObjectStyle, bounds: Rect): St
     },
     text: '',
     fontSize: 24,
+    fontSizing: 'auto',
   };
 }
 
-/** Free-aspect corners keep their opposite anchor; only card text scales with resizing. */
+/** Auto text refits from the new card; manual text scales with its opposite anchor fixed. */
 export function resizeSticky(
   object: StickyObject,
   handle: ImageHandle,
@@ -309,12 +314,17 @@ export function resizeSticky(
       width,
       height,
     },
-    fontSize: boundedFontSize(boundedFontSize(object.fontSize) * scale),
+    fontSize:
+      object.fontSizing === 'manual'
+        ? boundedFontSize(boundedFontSize(object.fontSize) * scale)
+        : object.fontSize,
   };
 }
 
 function boundedFontSize(size: number): number {
-  return Number.isFinite(size) ? Math.max(12, Math.min(64, size)) : 24;
+  return Number.isFinite(size)
+    ? Math.max(MIN_STICKY_FONT_SIZE, Math.min(MAX_STICKY_FONT_SIZE, size))
+    : 24;
 }
 
 /** Deliberately independent of geometry.ts, which includes note bounds for hit testing. */

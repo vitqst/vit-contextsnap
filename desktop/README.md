@@ -22,9 +22,14 @@ below; the Chrome extension ZIP is not a desktop installer. Windows is not a des
   Space to select a window; press Escape to cancel.
 - Reuses arrows, editable labels, free drawing, rectangles, text, sticky notes, numbered
   steps, magnifiers, blur, solid redaction, crop, image layers, and undo/redo.
-- Notes update directly on the canvas while you type, automatically shrinking text to fit
-  the card. Deleting text restores its preferred size. Very large notes stop shrinking at
-  8px; enlarge the card if its text still overflows. The complete text is always retained.
+- Notes update directly on the canvas while you type. **Auto** fits the text to the card:
+  short notes use larger text, and more content shrinks it without growing the card. Resizing
+  the card refits its text. Very large notes stop shrinking at 8px; enlarge the card if its
+  text still overflows. The complete text is always retained.
+- Notes, text, and labels have a font-size slider and visible size preset buttons in Drawing
+  properties. Note presets/slider set a preferred size that can shrink on overflow; the size
+  readout shows what actually fits. **Auto** restores card-based sizing. A slider drag previews
+  immediately and creates one undo step when released.
 - **Text (T)** creates a transparent, wrapping text box. Select it and drag either side
   handle to change its width; its height grows with the content without a line-count cap
   (the overall export size limit still applies). Notes and text keep native text selection,
@@ -34,6 +39,10 @@ below; the Chrome extension ZIP is not a desktop installer. Windows is not a des
   is no separate Straight/Curved mode switch.
 - Text, notes, and labels use locally bundled **Playpen Sans**, including Vietnamese.
   Font loading does not contact Google or require an internet connection.
+- On Linux, inline input-method composition is enabled in the native webview, so intermediate
+  Vietnamese text can render on the card while typing instead of waiting for Enter. No IBus
+  or desktop input-method settings are changed; an input method explicitly configured for
+  an external composition window may still use that window.
 - Every drawing element, including text, labels, and inserted images, supports a configurable
   **Shadow**. Choose **Soft** (default), **Hard**, or turn it off in Drawing properties.
   Shadows scale with zoom and are included in PNG export; crop and selection guides are not.

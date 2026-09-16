@@ -1,0 +1,43 @@
+.font-size-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.font-size-heading .property-label {
+  flex: 1;
+}
+.font-size-auto {
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #f7f6fb;
+  color: #757181;
+  padding: 3px 6px;
+  margin-top: 5px;
+  font-size: 10px;
+}
+.font-size-presets {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  margin-top: 8px;
+}
+.font-size-presets button {
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #f7f6fb;
+  color: #757181;
+  min-height: 26px;
+  font-size: 11px;
+}
+.font-size-presets button[aria-pressed='true'],
+.font-size-auto[aria-pressed='true'] {
+  color: var(--accent);
+  background: #eeebff;
+  border-color: #cfc8fa;
+}
+.font-size-fit {
+  color: #7c758b;
+  font-size: 10px;
+  line-height: 1.5;
+  margin: 7px 0 0;
+}

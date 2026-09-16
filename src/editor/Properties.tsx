@@ -1,9 +1,17 @@
 import { Copy, Trash2, BringToFront, SendToBack } from 'lucide-react';
 import type { BrushSettings, DrawingObject, ObjectStyle, Rect, Tool } from '../core/model';
 import { BrushProperties } from './BrushProperties';
-import { objectText, withLabelPosition } from '../core/notes';
+import {
+  getNoteLayout,
+  MAX_STICKY_FONT_SIZE,
+  MIN_STICKY_FONT_SIZE,
+  objectText,
+  withLabelPosition,
+} from '../core/notes';
+import { labelFontSize } from '../core/label-layout';
 import { IconButton } from '../ui/IconButton';
 import { EffectsProperties } from './EffectsProperties';
+import { FontSizeControl } from './FontSizeControl';
 
 const COLORS = ['#e05252', '#e99b38', '#5b9a70', '#4f89c8', '#8e6bc7', '#282832', '#ffffff'];
 interface Props {
@@ -17,6 +25,8 @@ interface Props {
   onDuplicate: () => void;
   onFontSize: (value: number) => void;
   onUpdate: (object: DrawingObject) => void;
+  onPreviewFontSize?: (value: number | null) => void;
+  onAutoFontSize?: () => void;
   canBringForward: boolean;
   canSendBackward: boolean;
   onReorder: (direction: 'forward' | 'backward') => void;
@@ -35,6 +45,8 @@ export function Properties({
   onDuplicate,
   onFontSize,
   onUpdate,
+  onPreviewFontSize,
+  onAutoFontSize,
   canBringForward,
   canSendBackward,
   onReorder,
@@ -44,6 +56,19 @@ export function Properties({
   const type = selected?.type ?? tool;
   if (type === 'select' || type === 'crop') return null;
   const isRedact = type === 'redact';
+  const labelSizeControl = selected && (
+    <FontSizeControl
+      key={`${selected.id}-label`}
+      label="Label size"
+      value={labelFontSize(selected.labelFontSize)}
+      min={12}
+      max={48}
+      presets={[12, 16, 20, 24, 32, 48]}
+      onChange={onFontSize}
+      onPreview={onPreviewFontSize}
+      onCancelPreview={() => onPreviewFontSize?.(null)}
+    />
+  );
   return (
     <aside className="properties-panel" aria-label="Drawing properties">
       <div className="property-heading">
@@ -118,22 +143,17 @@ export function Properties({
             </>
           )}
           {selected?.type === 'text' && (
-            <>
-              <label className="property-label" htmlFor="font-size">
-                Font size
-              </label>
-              <select
-                id="font-size"
-                value={selected.fontSize}
-                onChange={(event) => onFontSize(Number(event.target.value))}
-              >
-                {[16, 20, 24, 32, 40, 48].map((size) => (
-                  <option key={size} value={size}>
-                    {size} px
-                  </option>
-                ))}
-              </select>
-            </>
+            <FontSizeControl
+              key={`${selected.id}-text`}
+              label="Font size"
+              value={selected.fontSize}
+              min={8}
+              max={Math.max(96, Math.ceil(selected.fontSize / 16) * 16)}
+              presets={[12, 16, 24, 32, 48, 64]}
+              onChange={onFontSize}
+              onPreview={onPreviewFontSize}
+              onCancelPreview={() => onPreviewFontSize?.(null)}
+            />
           )}
         </>
       )}
@@ -207,32 +227,47 @@ export function Properties({
             <option value="inside">Inside</option>
             <option value="free">Free (draggable)</option>
           </select>
-          <label className="property-label" htmlFor="shape-label-size">
-            Label size
-          </label>
-          <select
-            id="shape-label-size"
-            value={selected.labelFontSize ?? 20}
-            onChange={(event) =>
-              onUpdate({ ...selected, labelFontSize: Number(event.target.value) })
-            }
-          >
-            {[16, 20, 24, 28, 32].map((size) => (
-              <option key={size} value={size}>
-                {size} px
-              </option>
-            ))}
-          </select>
+          {labelSizeControl}
           <p className="property-note">
             Drag the label to reposition it. It follows the shape when moved or resized.
           </p>
         </div>
       )}
       {type === 'sticky' && (
-        <p className="property-note">
-          Double-click to type. Drag to move; resize from a corner. Only card text scales when
-          resized.
-        </p>
+        <>
+          {selected?.type === 'sticky' && (
+            <FontSizeControl
+              key={`${selected.id}-sticky`}
+              label="Font size"
+              value={
+                selected.fontSizing === 'manual'
+                  ? selected.fontSize
+                  : getNoteLayout(selected, sceneBounds).fontSize
+              }
+              effectiveValue={getNoteLayout(selected, sceneBounds).fontSize}
+              min={MIN_STICKY_FONT_SIZE}
+              max={Math.min(
+                MAX_STICKY_FONT_SIZE,
+                Math.max(
+                  96,
+                  Math.ceil(
+                    Math.max(selected.fontSize, getNoteLayout(selected, sceneBounds).fontSize) / 16,
+                  ) * 16,
+                ),
+              )}
+              presets={[12, 16, 24, 32, 48, 64]}
+              auto={selected.fontSizing !== 'manual'}
+              onAuto={onAutoFontSize}
+              onChange={onFontSize}
+              onPreview={onPreviewFontSize}
+              onCancelPreview={() => onPreviewFontSize?.(null)}
+            />
+          )}
+          <p className="property-note">
+            Double-click to type. Drag to move; resize from a corner. Auto fills the card; manual
+            sizes shrink when needed to fit.
+          </p>
+        </>
       )}
       {isRedact && (
         <p className="property-note">
@@ -283,22 +318,7 @@ export function Properties({
             value={selected.label}
             onChange={(event) => onLabel(event.target.value)}
           />
-          <label className="property-label" htmlFor="label-font-size">
-            Label size
-          </label>
-          <select
-            id="label-font-size"
-            value={selected.labelFontSize ?? 20}
-            onChange={(event) =>
-              onUpdate({ ...selected, labelFontSize: Number(event.target.value) })
-            }
-          >
-            {[16, 20, 24, 28, 32].map((size) => (
-              <option key={size} value={size}>
-                {size} px
-              </option>
-            ))}
-          </select>
+          {labelSizeControl}
           <button onClick={() => onUpdate({ ...selected, labelOffset: { x: 0, y: 0 } })}>
             Reset label position
           </button>

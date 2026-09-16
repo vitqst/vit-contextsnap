@@ -64,7 +64,10 @@ export interface StickyObject extends ObjectBase {
   type: 'sticky';
   rect: Rect;
   text: string;
+  /** Stored manual preference; automatic fitting derives its size from the card. */
   fontSize: number;
+  /** Omitted legacy values use automatic fill, just like newly created cards. */
+  fontSizing?: 'auto' | 'manual';
 }
 
 export interface RectangleObject extends ObjectBase {

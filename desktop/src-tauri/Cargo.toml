@@ -25,6 +25,7 @@ tokio = { version = "1", features = ["time"] }
 ashpd = { version = "0.13", default-features = false, features = ["tokio", "screenshot"] }
 gtk = "0.18"
 gdkx11 = "0.18"
+webkit2gtk = { version = "2.0.2", features = ["v2_28"] }
 url = "2"
 zbus = { version = "5", default-features = false, features = ["tokio"] }
 

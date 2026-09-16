@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   createSticky,
   getNoteLayout,
+  MAX_STICKY_FONT_SIZE,
+  MIN_STICKY_FONT_SIZE,
   objectText,
   moveShapeLabelBy,
   withLabelPosition,
@@ -23,6 +25,7 @@ const sticky: StickyObject = {
   rect: { x: 100, y: 100, width: 220, height: 150 },
   text: 'A useful note',
   fontSize: 24,
+  fontSizing: 'manual',
 };
 const rectangle: DrawingObject = {
   id: 'rectangle',
@@ -32,6 +35,99 @@ const rectangle: DrawingObject = {
   rect: { x: 200, y: 300, width: 240, height: 160 },
   note: 'Shape note',
 };
+
+describe('sticky card font sizing', () => {
+  const automatic: StickyObject = { ...sticky, text: 'OK', fontSizing: undefined };
+
+  it('fills a card with short text by default, including existing notes without a sizing mode', () => {
+    const layout = getNoteLayout(automatic);
+    expect(layout.fontSize).toBeGreaterThan(automatic.fontSize);
+    expect(layout.lines).toEqual(['OK']);
+    expect(layout.truncated).toBe(false);
+    expect(layout.lineHeight).toBeLessThanOrEqual(layout.rect.height);
+    expect(measureText('OK', layout.fontSize)).toBeLessThanOrEqual(layout.contentWidth);
+    expect(getNoteLayout({ ...automatic, fontSize: 8 })).toEqual(layout);
+    expect(getNoteLayout({ ...automatic, fontSizing: 'auto' })).toEqual(layout);
+  });
+
+  it('grows and shrinks from the actual resized card while preserving the manual preference', () => {
+    const before = getNoteLayout(automatic);
+    const enlarged = resizeSticky(automatic, 'se', { x: 540, y: 400 });
+    const after = getNoteLayout(enlarged);
+    expect(after.fontSize).toBeGreaterThan(before.fontSize);
+    expect(after.fontSize).toBeGreaterThan(64);
+    expect(after.lineHeight * after.lines.length).toBeLessThanOrEqual(after.rect.height);
+    expect(enlarged.fontSize).toBe(automatic.fontSize);
+    const restored = resizeSticky(enlarged, 'se', { x: 320, y: 250 });
+    expect(getNoteLayout(restored)).toEqual(before);
+    expect(restored.fontSize).toBe(automatic.fontSize);
+  });
+
+  it('shrinks live text to fit and restores the larger auto size when text is removed', () => {
+    const before = getNoteLayout(automatic);
+    const value = '  A much longer note\nwith several useful details.\n';
+    const expanded = getNoteLayout({ ...automatic, text: value });
+    expect(expanded.fontSize).toBeLessThan(before.fontSize);
+    expect(expanded.fontSize).toBeGreaterThanOrEqual(8);
+    expect(expanded.truncated).toBe(false);
+    expect(expanded.lines.join('')).toBe(value.replace(/\n/gu, ''));
+    expect(expanded.lines.at(-1)).toBe('');
+    expect(getNoteLayout({ ...automatic, text: 'OK' })).toEqual(before);
+  });
+
+  it('honors large manual preferences and restores auto fill without overwriting them', () => {
+    const card: StickyObject = {
+      ...sticky,
+      text: 'OK',
+      fontSize: 96,
+      rect: { x: -100, y: -200, width: 800, height: 500 },
+    };
+    const manual = getNoteLayout(card);
+    expect(manual.fontSize).toBe(96);
+    const auto = getNoteLayout({ ...card, fontSizing: 'auto' });
+    expect(auto.fontSize).toBeGreaterThan(manual.fontSize);
+    expect(getNoteLayout({ ...card, fontSizing: 'manual' })).toEqual(manual);
+    expect(card.fontSize).toBe(96);
+  });
+
+  it('uses bounded font candidates and clips safely when even the minimum cannot fit', () => {
+    expect(MIN_STICKY_FONT_SIZE).toBe(8);
+    expect(MAX_STICKY_FONT_SIZE).toBe(2048);
+    const huge = getNoteLayout({
+      ...automatic,
+      text: 'A',
+      rect: { x: 0, y: 0, width: 10000, height: 10000 },
+    });
+    expect(huge.fontSize).toBe(2048);
+    const tiny = getNoteLayout({
+      ...automatic,
+      rect: { x: 0, y: 0, width: 12, height: 12 },
+    });
+    expect(tiny.fontSize).toBe(8);
+    expect(tiny.lines).toEqual([]);
+    expect(tiny.truncated).toBe(true);
+    expect(automatic.text).toBe('OK');
+  });
+
+  it('reuses auto metrics during translation but invalidates dimensions and sizing changes', () => {
+    const card = { ...automatic, text: 'Auto sizing cache test' };
+    const before = getNoteLayout(card);
+    const measure = vi.spyOn(measurements, 'measureText');
+    try {
+      const moved = getNoteLayout({ ...card, rect: { ...card.rect, x: -300, y: 400 } });
+      expect(moved.fontSize).toBe(before.fontSize);
+      expect(moved.lines).toEqual(before.lines);
+      expect(measure).not.toHaveBeenCalled();
+      getNoteLayout({ ...card, rect: { ...card.rect, width: 440 } });
+      expect(measure).toHaveBeenCalled();
+      measure.mockClear();
+      expect(getNoteLayout({ ...card, fontSizing: 'manual', fontSize: 12 }).fontSize).toBe(12);
+      expect(measure).toHaveBeenCalled();
+    } finally {
+      measure.mockRestore();
+    }
+  });
+});
 
 describe('shared sticky text contrast', () => {
   it.each([
@@ -462,6 +558,7 @@ describe('sticky card creation and resizing', () => {
       type: 'sticky',
       text: '',
       fontSize: 24,
+      fontSizing: 'auto',
       rect: { x: 190, y: 225, width: 220, height: 150 },
       style: { ...style, shadow: true },
     });
@@ -500,10 +597,11 @@ describe('sticky card creation and resizing', () => {
   it('clamps minimum card dimensions without flipping at the opposite corner', () => {
     const result = resizeSticky(sticky, 'se', { x: -100, y: -100 });
     expect(result.rect).toEqual({ x: 100, y: 100, width: 80, height: 60 });
-    expect(result.fontSize).toBe(12);
+    expect(result.fontSize).toBeCloseTo((24 * 80) / 220);
   });
 
-  it('bounds enlarged text to a readable maximum', () => {
-    expect(resizeSticky(sticky, 'se', { x: 2300, y: 1600 }).fontSize).toBe(64);
+  it('scales manual preferences above 64 pixels but retains a finite safety maximum', () => {
+    expect(resizeSticky(sticky, 'se', { x: 2300, y: 1600 }).fontSize).toBe(240);
+    expect(resizeSticky(sticky, 'se', { x: 220100, y: 150100 }).fontSize).toBe(2048);
   });
 });
