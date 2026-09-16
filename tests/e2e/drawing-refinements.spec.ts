@@ -8,12 +8,13 @@ import {
   inspectPng,
 } from './extension';
 
-test('arrow label moves independently; mode and shadow changes are undoable', async ({
+test('straight arrows bend by dragging; label moves and shadow changes are undoable', async ({
   page,
   extensionId,
 }) => {
   await openImageEditor(page, extensionId);
-  await page.getByRole('button', { name: 'Straight', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Straight', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Curved', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Clean', exact: true }).click();
   await dragOnCanvas(page, { x: 180, y: 180 }, { x: 720, y: 180 });
   await page.getByRole('textbox', { name: 'Arrow label', exact: true }).fill('Attached label');
@@ -22,7 +23,10 @@ test('arrow label moves independently; mode and shadow changes are undoable', as
   await page.getByRole('checkbox', { name: 'Shadow', exact: true }).uncheck();
   const flat = await downloadPng(page);
   expect(flat.equals(shadowed)).toBe(false);
-  await page.getByRole('button', { name: 'Curved', exact: true }).click();
+  expect((await inspectPng(page, flat, [{ x: 450, y: 180 }])).pixels[0]).toEqual([
+    224, 82, 82, 255,
+  ]);
+  await dragOnCanvas(page, { x: 450, y: 180 }, { x: 450, y: 240 });
   expect((await downloadPng(page)).equals(flat)).toBe(false);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   expect((await downloadPng(page)).equals(flat)).toBe(true);
@@ -193,11 +197,23 @@ for (const shape of ['redact', 'white rectangle'] as const) {
     const center = await canvasPoint(page, 390, 270);
     await page.mouse.dblclick(center.x, center.y);
     const editor = page.getByRole('textbox', { name: 'Edit label', exact: true });
+    const before = await page
+      .getByTestId('drawing-canvas')
+      .evaluate((canvas) => (canvas as HTMLCanvasElement).toDataURL());
     await editor.fill('Readable while editing');
     await expect(editor).toHaveCSS(
-      'color',
+      'caret-color',
       shape === 'redact' ? 'rgb(224, 82, 82)' : 'rgb(255, 255, 255)',
     );
+    // Text is painted in the scene now; the transparent native input supplies the caret.
+    await expect
+      .poll(
+        async () =>
+          (await page
+            .getByTestId('drawing-canvas')
+            .evaluate((canvas) => (canvas as HTMLCanvasElement).toDataURL())) !== before,
+      )
+      .toBe(true);
     await expect(editor).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
     await editor.press('Control+Enter');
     await page.mouse.dblclick(center.x, center.y);

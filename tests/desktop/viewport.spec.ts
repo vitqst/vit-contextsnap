@@ -35,9 +35,11 @@ test('dragging an arrow beyond the screenshot expands preview and PNG, including
   const canvas = page.getByTestId('drawing-canvas');
   const initial = (await page.locator('.screenshot-background').boundingBox())!;
   await page.getByRole('button', { name: 'Select (V)', exact: true }).click();
+  // Deselect before grabbing the shaft, rather than dragging the selected bend handle.
+  await page.keyboard.press('Escape');
   const start = {
     x: initial.x + (initial.width * 390) / 960,
-    y: initial.y + (initial.height * 266) / 640,
+    y: initial.y + (initial.height * 230) / 640,
   };
   await page.mouse.move(start.x, start.y);
   await page.mouse.down();
@@ -64,9 +66,10 @@ test('dragging beyond the bottom-right edge retains the whole arrow without movi
   await addArrow(page);
   const canvas = page.getByTestId('drawing-canvas');
   const initial = (await page.locator('.screenshot-background').boundingBox())!;
+  await page.keyboard.press('Escape');
   const start = {
     x: initial.x + (initial.width * 390) / 960,
-    y: initial.y + (initial.height * 266) / 640,
+    y: initial.y + (initial.height * 230) / 640,
   };
   await page.mouse.move(start.x, start.y);
   await page.mouse.down();
@@ -98,7 +101,8 @@ test('an oversized drag is rejected without allocating a huge canvas or losing t
   await addArrow(page);
   const canvas = page.getByTestId('drawing-canvas');
   const frame = (await page.locator('.screenshot-background').boundingBox())!;
-  await page.mouse.move(frame.x + (frame.width * 390) / 960, frame.y + (frame.height * 266) / 640);
+  await page.keyboard.press('Escape');
+  await page.mouse.move(frame.x + (frame.width * 390) / 960, frame.y + (frame.height * 230) / 640);
   await page.mouse.down();
   await page.mouse.move(frame.x + 20000, frame.y + frame.height / 2);
   await page.mouse.up();
@@ -120,7 +124,8 @@ test('inline note editing stays aligned after expanding above and left of the sc
     x: initial.x + (initial.width * x) / 960,
     y: initial.y + (initial.height * y) / 640,
   });
-  const arrow = point(390, 266);
+  await page.keyboard.press('Escape');
+  const arrow = point(390, 230);
   await page.mouse.move(arrow.x, arrow.y);
   await page.mouse.down();
   await page.mouse.move(initial.x - 90, initial.y - 55, { steps: 20 });
@@ -141,10 +146,12 @@ test('inline note editing stays aligned after expanding above and left of the sc
   const lineHeight = await editor.evaluate((element) =>
     parseFloat(getComputedStyle(element).lineHeight),
   );
-  // WebKit rounds pointer coordinates to CSS pixels. The editable hit area also
-  // has a 24px minimum height, so compare the text line rather than that hit area.
+  // Inline text lays out in world pixels, then transforms with the canvas zoom.
+  // WebKit also rounds pointer coordinates to CSS pixels.
   expect(Math.abs(box.x + box.width / 2 - (start.x + end.x) / 2)).toBeLessThan(1);
-  expect(Math.abs(box.y + lineHeight / 2 - (start.y + end.y) / 2)).toBeLessThan(1);
+  expect(
+    Math.abs(box.y + (lineHeight * initial.width) / 960 / 2 - (start.y + end.y) / 2),
+  ).toBeLessThan(1);
   await editor.fill('Aligned note');
   await editor.press('Control+Enter');
   await page.mouse.dblclick((start.x + end.x) / 2, (start.y + end.y) / 2);

@@ -3,6 +3,8 @@ import rough from 'roughjs';
 import { getArrowLabelLayout } from '../core/arrow-label';
 import { arrowHeadPoints, objectBounds } from '../core/geometry';
 import { arrowControl } from '../core/arrows';
+import { LABEL_FONT_FAMILY } from '../core/label-layout';
+import { getTextLayout } from '../core/text-layout';
 import { penOutline } from '../core/brush';
 import { drawShapeNote, drawSticky } from './render-notes';
 import { objectsInPaintOrder } from '../core/layers';
@@ -580,11 +582,13 @@ function drawPen(ctx: CanvasRenderingContext2D, object: PenObject): void {
 }
 
 function drawText(ctx: CanvasRenderingContext2D, object: TextObject): void {
-  ctx.font = `500 ${object.fontSize}px ${FONT_FAMILY}`;
+  const layout = getTextLayout(object);
+  ctx.font = `500 ${object.fontSize}px ${LABEL_FONT_FAMILY}`;
+  ctx.fontKerning = 'normal';
   ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
-  object.text.split('\n').forEach((line, index) => {
-    const y = object.position.y + index * object.fontSize * 1.3;
+  ctx.textBaseline = 'middle';
+  layout.lines.forEach((line, index) => {
+    const y = object.position.y + (index + 0.5) * layout.lineHeight;
     // A narrow white halo keeps notes readable over both light and dark screenshots.
     ctx.strokeStyle = object.style.color.toLowerCase() === '#ffffff' ? '#282832' : '#ffffff';
     ctx.lineWidth = Math.max(3, object.fontSize / 7);

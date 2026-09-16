@@ -43,11 +43,29 @@ function expectOutsideLabel(object: ArrowObject, bounds: Rect, point: Point, sca
 }
 
 describe('arrow editing handles', () => {
-  it('keeps endpoints unchanged and omits a bend handle for a straight arrow', () => {
+  it('keeps endpoints unchanged and exposes a midpoint bend handle for a straight arrow', () => {
     expect(arrowHandles({ ...arrow, mode: 'straight' }, scene, 1)).toEqual([
       ['start', arrow.start],
       ['end', arrow.end],
+      ['control', { x: 300, y: 200 }],
     ]);
+  });
+
+  it('exposes the bend handle for legacy straight arrows without an explicit mode', () => {
+    const legacy = { ...arrow, mode: undefined, control: { x: 300, y: 200 }, label: '' };
+    expect(bend(legacy)).toEqual({ x: 300, y: 200 });
+  });
+
+  it('keeps the straight-arrow bend handle clear of an independently positioned label', () => {
+    const straight: ArrowObject = { ...arrow, mode: 'straight' };
+    const center = getArrowLabelLayout(straight, scene).center;
+    const labeled = {
+      ...straight,
+      labelOffset: { x: 300 - center.x, y: 200 - center.y },
+    };
+    const handle = bend(labeled);
+    expectVisible(handle, scene, 1);
+    expectOutsideLabel(labeled, scene, handle, 1);
   });
 
   it('uses the curve midpoint for an unlabeled arrow when it is visible', () => {

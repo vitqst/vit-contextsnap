@@ -62,6 +62,7 @@ function drawNoteText(
   if (shadows) applyObjectShadow(ctx, object.style);
   else clearShadow(ctx);
   ctx.font = `500 ${fontSize}px ${NOTE_FONT_FAMILY}`;
+  ctx.fontKerning = 'normal';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = color;

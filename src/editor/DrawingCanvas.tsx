@@ -30,6 +30,14 @@ import {
   objectBounds,
 } from '../core/geometry';
 import { arrowHandles } from '../core/arrow-handles';
+import { arrowControl } from '../core/arrows';
+import {
+  DEFAULT_TEXT_WIDTH,
+  textHandles,
+  hitTestTextHandle,
+  resizeTextWidth,
+  type TextHandle,
+} from '../core/text-layout';
 import { sampleStrokePoint } from '../core/brush';
 import { createSticky, resizeSticky, hitTestShapeLabel, moveShapeLabelBy } from '../core/notes';
 import { objectsInPaintOrder } from '../core/layers';
@@ -66,7 +74,6 @@ interface Props {
   setTool: (tool: Tool) => void;
   style: ObjectStyle;
   brush: BrushSettings;
-  arrowMode: 'straight' | 'curved';
   scale: number;
   selectedId: string | null;
   selectedIds: readonly string[];
@@ -83,6 +90,7 @@ interface Gesture {
   object?: DrawingObject;
   handle?: ArrowHandle;
   imageHandle?: ImageHandle;
+  textHandle?: TextHandle;
   cropHandle?: CropHandle;
   doc: EditorDocument;
   latest: EditorDocument;
@@ -155,6 +163,9 @@ function drawOverlay(
   if (selected.type === 'magnifier') {
     drawSquareHandles(ctx, magnifierHandles(selected), scale);
   }
+  if (selected.type === 'text') {
+    drawSquareHandles(ctx, Object.values(textHandles(selected)), scale);
+  }
   ctx.restore();
 }
 
@@ -181,7 +192,6 @@ export function DrawingCanvas(props: Props) {
     setTool,
     style,
     brush,
-    arrowMode,
     scale,
     selectedId,
     selectedIds,
@@ -372,6 +382,22 @@ export function DrawingCanvas(props: Props) {
         return;
       }
       const selected = committed.objects.find((object) => object.id === selectedId);
+      if (selected?.type === 'text') {
+        const handle = hitTestTextHandle(selected, point, 11 / scale);
+        if (handle) {
+          gesture.current = {
+            kind: 'resize',
+            start: point,
+            object: selected,
+            textHandle: handle,
+            doc: committed,
+            latest: committed,
+            moved: false,
+            pointerId: event.pointerId,
+          };
+          return;
+        }
+      }
       if (
         selected?.type === 'magnifier' &&
         magnifierHandles(selected).some(
@@ -453,6 +479,7 @@ export function DrawingCanvas(props: Props) {
         position: point,
         text: '',
         fontSize: 24,
+        width: DEFAULT_TEXT_WIDTH,
       };
       editText(object);
       setTool('select');
@@ -489,7 +516,7 @@ export function DrawingCanvas(props: Props) {
         start: point,
         end: point,
         control: point,
-        mode: arrowMode,
+        mode: 'straight',
         label: '',
         labelOffset: { x: 0, y: 0 },
       };
@@ -591,11 +618,14 @@ export function DrawingCanvas(props: Props) {
         object = resizeSticky(object, active.imageHandle, point);
       } else if (active.kind === 'resize' && object.type === 'magnifier') {
         object = resizeMagnifier(object, active.start, point);
+      } else if (active.kind === 'resize' && object.type === 'text' && active.textHandle) {
+        object = resizeTextWidth(object, active.textHandle, point);
       } else if (active.kind === 'handle' && object.type === 'arrow' && active.handle) {
         if (active.handle === 'control') {
+          const control = arrowControl(object);
           point = {
-            x: object.control.x + 2 * (point.x - active.start.x),
-            y: object.control.y + 2 * (point.y - active.start.y),
+            x: control.x + 2 * (point.x - active.start.x),
+            y: control.y + 2 * (point.y - active.start.y),
           };
         }
         object = moveArrowHandle(object, active.handle, point);
@@ -604,8 +634,8 @@ export function DrawingCanvas(props: Props) {
           object = {
             ...object,
             end: point,
-            mode: event.shiftKey ? 'straight' : arrowMode,
-            control: autoControl(active.start, point),
+            mode: 'straight',
+            control: autoControl(active.start, point, true),
           };
         } else if (object.type === 'pen') {
           const latest = active.latest.objects.find((item) => item.id === object.id);

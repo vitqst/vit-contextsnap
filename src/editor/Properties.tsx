@@ -20,8 +20,6 @@ interface Props {
   canBringForward: boolean;
   canSendBackward: boolean;
   onReorder: (direction: 'forward' | 'backward') => void;
-  arrowMode: 'straight' | 'curved';
-  onArrowMode: (mode: 'straight' | 'curved') => void;
   brush: BrushSettings;
   onBrush: (brush: BrushSettings) => void;
 }
@@ -40,8 +38,6 @@ export function Properties({
   canBringForward,
   canSendBackward,
   onReorder,
-  arrowMode,
-  onArrowMode,
   brush,
   onBrush,
 }: Props) {
@@ -140,20 +136,6 @@ export function Properties({
             </>
           )}
         </>
-      )}
-      {type === 'arrow' && (
-        <div className="style-switch" role="group" aria-label="Arrow mode">
-          {(['straight', 'curved'] as const).map((mode) => (
-            <button
-              key={mode}
-              className={arrowMode === mode ? 'chosen' : ''}
-              aria-pressed={arrowMode === mode}
-              onClick={() => onArrowMode(mode)}
-            >
-              {mode === 'straight' ? 'Straight' : 'Curved'}
-            </button>
-          ))}
-        </div>
       )}
       <>
         <label className="shadow-option">
@@ -362,8 +344,8 @@ export function Properties({
       {type === 'arrow' && (
         <p className="property-note">
           {selected
-            ? 'Drag an endpoint to aim. In Curved mode, drag the bend handle.'
-            : 'Choose Straight or Curved, then drag. Hold Shift to draw straight.'}
+            ? 'Drag an endpoint to aim. Drag the middle handle to bend the arrow.'
+            : 'Drag to draw a straight arrow. Select it and drag the middle handle to bend.'}
         </p>
       )}
     </aside>

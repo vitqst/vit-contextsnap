@@ -1,7 +1,7 @@
 import type { Point, Rect } from './model';
+import { wrapEditableText } from './text-wrap';
 
-export const LABEL_FONT_FAMILY =
-  'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+export const LABEL_FONT_FAMILY = '"Playpen Sans", system-ui, sans-serif';
 const MAX_WIDTH = 320;
 const MAX_LINES = 8;
 const PADDING_X = 10;
@@ -14,6 +14,8 @@ export interface LabelLayout {
   fontSize: number;
   lineHeight: number;
   truncated: boolean;
+  /** Native editing must wrap at this width, not the padded tight hit rectangle. */
+  contentWidth: number;
 }
 
 let measuringContext: CanvasRenderingContext2D | null | undefined;
@@ -39,13 +41,15 @@ export function getTextLabelLayout(
   );
   const measure = (text: string) => measureText(text, fontSize);
   const contentWidth = Math.max(0, maxWidth - PADDING_X * 2);
-  text = text.trim();
   const wrapped =
     maxLines > 0 && measure('…') <= contentWidth
       ? wrapText(text, contentWidth, maxLines, measure)
       : { lines: [], truncated: text.length > 0 };
   const width = Math.min(maxWidth, Math.max(0, ...wrapped.lines.map(measure)) + PADDING_X * 2);
-  const height = Math.min(maxHeight, wrapped.lines.length * lineHeight + PADDING_Y * 2);
+  const height = Math.min(
+    maxHeight,
+    Math.max(1, wrapped.lines.length) * lineHeight + PADDING_Y * 2,
+  );
   const anchor = anchorForSize({ width, height });
   let x = anchor.x - width / 2;
   let y = anchor.y - height / 2;
@@ -60,6 +64,7 @@ export function getTextLabelLayout(
     ...wrapped,
     fontSize,
     lineHeight,
+    contentWidth,
   };
 }
 
@@ -69,6 +74,9 @@ export function measureText(text: string, fontSize: number): number {
   }
   if (measuringContext) {
     measuringContext.font = `500 ${fontSize}px ${LABEL_FONT_FAMILY}`;
+    // Match native inline text; the bundled font excludes context-dependent
+    // alternate substitutions so measuring prefixes cannot change glyph widths.
+    measuringContext.fontKerning = 'normal';
     return measuringContext.measureText(text).width;
   }
   // Pure geometry also runs without a browser. This conservative proportional estimate
@@ -97,51 +105,24 @@ export function wrapText(
   measure: (text: string) => number,
 ): { lines: string[]; truncated: boolean } {
   if (!text) return { lines: [], truncated: false };
-  const lines: string[] = [];
-  let forcedTruncation = false;
-  outer: for (const paragraph of text.split(/\r?\n/u)) {
-    let line = '';
-    for (const word of paragraph.trim().split(/\s+/u)) {
-      if (!word) continue;
-      const candidate = line ? `${line} ${word}` : word;
-      if (measure(candidate) <= width) {
-        line = candidate;
-        continue;
-      }
-      if (line) {
-        lines.push(line);
-        line = '';
-        if (lines.length > maxLines) break outer;
-      }
-      if (measure(word) <= width) {
-        line = word;
-        continue;
-      }
-      for (const character of Array.from(word)) {
-        if (measure(line + character) > width) {
-          if (!line) {
-            // A single wide glyph cannot fit: keep an honest ellipsis, never overflow.
-            line = '…';
-            forcedTruncation = true;
-            break;
-          }
-          lines.push(line);
-          line = '';
-          if (lines.length > maxLines) break outer;
-        }
-        line += character;
-      }
-    }
-    lines.push(line);
-    if (lines.length > maxLines) break;
+  const wrapped = wrapEditableText(text, width, maxLines, measure);
+  // Labels remain bounded. An indivisible glyph wider than the crop must become
+  // an honest ellipsis, never half a combining sequence or an overflowing emoji.
+  const oversized = wrapped.lines.findIndex((line) => measure(line) > width);
+  if (oversized !== -1) {
+    wrapped.lines = wrapped.lines.slice(0, oversized + 1);
+    wrapped.truncated = true;
   }
-  const truncated = forcedTruncation || lines.length > maxLines;
-  const visible = lines.slice(0, maxLines);
-  if (truncated && visible.length) {
-    const index = visible.length - 1;
-    const characters = Array.from(visible[index] ?? '');
+  if (wrapped.truncated && wrapped.lines.length) {
+    const index = wrapped.lines.length - 1;
+    const characters = Array.from(
+      labelGraphemes.segment(wrapped.lines[index]!),
+      (part) => part.segment,
+    );
     while (characters.length && measure(`${characters.join('')}…`) > width) characters.pop();
-    visible[index] = `${characters.join('').trimEnd()}…`;
+    wrapped.lines[index] = `${characters.join('')}…`;
   }
-  return { lines: visible, truncated };
+  return wrapped;
 }
+
+const labelGraphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });

@@ -1,4 +1,4 @@
-import { arrowControl, arrowMode } from './arrows';
+import { arrowControl } from './arrows';
 import { getArrowLabelLayout } from './arrow-label';
 import type { ArrowHandle, ArrowObject, Point, Rect } from './model';
 
@@ -16,33 +16,31 @@ export function arrowHandles(
     ['start', arrow.start],
     ['end', arrow.end],
   ];
-  if (arrowMode(arrow) === 'curved') {
-    const zoom = Number.isFinite(scale) && scale > 0 ? scale : 1;
-    const radius = 7 / zoom;
-    const inside = (point: Point): Point => clampHandle(point, sceneBounds, radius);
-    let position = inside(middle);
-    if (arrow.label.trim()) {
-      const { rect } = getArrowLabelLayout(arrow, sceneBounds);
-      const gap = 18 / zoom;
-      const candidates = [
-        position,
-        { x: middle.x, y: rect.y - gap },
-        { x: middle.x, y: rect.y + rect.height + gap },
-        { x: rect.x - gap, y: middle.y },
-        { x: rect.x + rect.width + gap, y: middle.y },
-      ].map(inside);
-      // Clamping an above-label handle can put it inside the label; try another side first.
-      position =
-        candidates.find(
-          (point) =>
-            point.x + radius < rect.x ||
-            point.x - radius > rect.x + rect.width ||
-            point.y + radius < rect.y ||
-            point.y - radius > rect.y + rect.height,
-        ) ?? position;
-    }
-    handles.push(['control', position]);
+  const zoom = Number.isFinite(scale) && scale > 0 ? scale : 1;
+  const radius = 7 / zoom;
+  const inside = (point: Point): Point => clampHandle(point, sceneBounds, radius);
+  let position = inside(middle);
+  if (arrow.label.trim()) {
+    const { rect } = getArrowLabelLayout(arrow, sceneBounds);
+    const gap = 18 / zoom;
+    const candidates = [
+      position,
+      { x: middle.x, y: rect.y - gap },
+      { x: middle.x, y: rect.y + rect.height + gap },
+      { x: rect.x - gap, y: middle.y },
+      { x: rect.x + rect.width + gap, y: middle.y },
+    ].map(inside);
+    // Clamping an above-label handle can put it inside the label; try another side first.
+    position =
+      candidates.find(
+        (point) =>
+          point.x + radius < rect.x ||
+          point.x - radius > rect.x + rect.width ||
+          point.y + radius < rect.y ||
+          point.y - radius > rect.y + rect.height,
+      ) ?? position;
   }
+  handles.push(['control', position]);
   return handles;
 }
 

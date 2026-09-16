@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   createSticky,
   getNoteLayout,
@@ -10,6 +10,8 @@ import {
   withObjectText,
 } from './notes';
 import type { DrawingObject, ObjectStyle, Rect, StickyObject } from './model';
+import { measureText } from './label-layout';
+import * as measurements from './label-layout';
 
 const style: ObjectStyle = { color: '#ffe58f', width: 4, sketch: false };
 const bounds: Rect = { x: 10, y: 20, width: 800, height: 600 };
@@ -258,6 +260,14 @@ describe('step notes preserve the numbered circle', () => {
     note: 'Check this step',
   };
 
+  it('preserves leading spaces and the trailing caret line in step notes', () => {
+    const layout = getNoteLayout({ ...step, note: ' First \n' }, bounds);
+    expect(layout.lines).toEqual([' First ', '']);
+    expect(layout.truncated).toBe(false);
+    expect(layout.rect.height).toBe(layout.lineHeight * 2);
+    expect(layout.contentWidth).toBe(layout.rect.width);
+  });
+
   it('places a tightly attached note below the numbered circle with an eight-pixel gap', () => {
     const layout = getNoteLayout(step, bounds);
     expect(layout.rect.y).toBeGreaterThanOrEqual(step.center.y + step.radius + 8);
@@ -372,6 +382,80 @@ describe('step notes preserve the numbered circle', () => {
 });
 
 describe('sticky card creation and resizing', () => {
+  it('uses a bounded ellipsis if an indivisible glyph cannot fit even the minimum size', () => {
+    const layout = getNoteLayout({
+      ...sticky,
+      rect: { x: 0, y: 0, width: 80, height: 80 },
+      text: '👨‍👩‍👧‍👦',
+    });
+    expect(layout.fontSize).toBe(8);
+    expect(layout.truncated).toBe(true);
+    expect(layout.lines).toEqual(['…']);
+  });
+
+  it('shrinks oversized individual glyphs to the available inner width', () => {
+    const note = { ...sticky, rect: { x: 0, y: 0, width: 42, height: 80 }, text: 'W' };
+    const layout = getNoteLayout(note);
+    expect(layout.fontSize).toBeLessThan(24);
+    expect(layout.truncated).toBe(false);
+    expect(measureText(layout.lines[0]!, layout.fontSize)).toBeLessThanOrEqual(layout.rect.width);
+  });
+
+  it('retains editable whitespace and trailing blank caret lines during fitting', () => {
+    const value = '  First  \n\nSecond\n';
+    const layout = getNoteLayout({ ...sticky, text: value });
+    expect(layout.lines).toEqual(['  First  ', '', 'Second', '']);
+    expect(layout.truncated).toBe(false);
+    expect(layout.lines.length * layout.lineHeight).toBeLessThanOrEqual(layout.rect.height);
+  });
+
+  it('reuses the fitted text while moving a card, but recomputes for live edits', () => {
+    const note = {
+      ...sticky,
+      text: 'An unchanged sticky whose content needs to shrink to fit'.repeat(2),
+    };
+    const before = getNoteLayout(note);
+    const measure = vi.spyOn(measurements, 'measureText');
+    try {
+      const moved = getNoteLayout({ ...note, rect: { ...note.rect, x: 400, y: 450 } });
+      expect(moved.lines).toEqual(before.lines);
+      expect(moved.center).toEqual({ x: 510, y: 525 });
+      expect(measure).not.toHaveBeenCalled();
+      getNoteLayout({ ...note, text: `${note.text}!` });
+      expect(measure).toHaveBeenCalled();
+    } finally {
+      measure.mockRestore();
+    }
+  });
+
+  it('shrinks long text to fit the whole card while preserving its preferred size and content', () => {
+    const note = {
+      ...sticky,
+      text: 'This is a longer note that should fit inside the card without losing its ending.',
+    };
+    const layout = getNoteLayout(note);
+    expect(layout.fontSize).toBeLessThan(note.fontSize);
+    expect(layout.fontSize).toBeGreaterThanOrEqual(8);
+    expect(layout.truncated).toBe(false);
+    expect(layout.lines.join('')).toBe(note.text);
+    expect(layout.lines.length * layout.lineHeight).toBeLessThanOrEqual(layout.rect.height);
+    for (const line of layout.lines)
+      expect(measureText(line, layout.fontSize)).toBeLessThanOrEqual(layout.rect.width);
+    expect(note.fontSize).toBe(24);
+    expect(getNoteLayout({ ...note, text: 'Short again' }).fontSize).toBe(24);
+  });
+
+  it('fits preferred text into a smaller cropped card before falling back to truncation', () => {
+    const layout = getNoteLayout(
+      { ...sticky, text: 'First\nSecond\nThird' },
+      { x: 100, y: 100, width: 160, height: 80 },
+    );
+    expect(layout.truncated).toBe(false);
+    expect(layout.lines).toEqual(['First', 'Second', 'Third']);
+    expect(layout.fontSize).toBeLessThan(24);
+    expect(layout.lines.length * layout.lineHeight).toBeLessThanOrEqual(layout.rect.height);
+  });
+
   it('creates an empty centered colored card with its shadow on by default', () => {
     const result = createSticky({ x: 300, y: 300 }, style, bounds);
     expect(result).toMatchObject({

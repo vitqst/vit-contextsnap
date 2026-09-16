@@ -6,6 +6,7 @@ import {
   LABEL_FONT_FAMILY,
 } from './label-layout';
 import type { ImageHandle } from './image-geometry';
+import { wrapEditableText } from './text-wrap';
 import {
   newObjectBase,
   type DrawingObject,
@@ -39,6 +40,8 @@ export interface NoteLayout {
   lineHeight: number;
   center: Point;
   truncated: boolean;
+  /** Actual line-wrapping width, which may exceed a short label's tight bounds. */
+  contentWidth: number;
 }
 
 export function objectText(object: DrawingObject): string {
@@ -61,18 +64,79 @@ export function getNoteLayout(object: DrawingObject, bounds?: Rect): NoteLayout 
   const padding = object.type === 'sticky' ? 14 : 8;
   const width = Math.max(0, visible.width - padding * 2);
   const height = Math.max(0, visible.height - padding * 2);
-  const fontSize = object.type === 'sticky' ? boundedFontSize(object.fontSize) : 20;
-  const lineHeight = Math.ceil(fontSize * 1.3);
+  const preferredSize = boundedFontSize(object.fontSize);
   const center = { x: visible.x + visible.width / 2, y: visible.y + visible.height / 2 };
   const rect = { x: center.x - width / 2, y: center.y - height / 2, width, height };
-  const maxLines = Math.floor(height / lineHeight);
-  const text = objectText(object).trim();
-  const measure = (value: string) => measureText(value, fontSize);
-  const wrapped =
-    maxLines > 0 && measure('…') <= width
-      ? wrapText(text, width, maxLines, measure)
-      : { lines: [], truncated: text.length > 0 };
-  return { rect, center, fontSize, lineHeight, ...wrapped };
+  const fitted = fitStickyText(objectText(object), width, height, preferredSize);
+  return { rect, center, contentWidth: width, ...fitted };
+}
+
+type FittedStickyText = Pick<NoteLayout, 'fontSize' | 'lineHeight' | 'lines' | 'truncated'>;
+const stickyTextCache = new Map<string, FittedStickyText>();
+const stickyGraphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+
+function fitStickyText(
+  text: string,
+  width: number,
+  height: number,
+  preferredSize: number,
+): FittedStickyText {
+  const key = text.length <= 8192 ? JSON.stringify([text, width, height, preferredSize]) : null;
+  const cached = key ? stickyTextCache.get(key) : undefined;
+  if (cached && key) {
+    stickyTextCache.delete(key);
+    stickyTextCache.set(key, cached);
+    return cached;
+  }
+  const remember = (value: FittedStickyText) => {
+    if (key) {
+      stickyTextCache.set(key, value);
+      if (stickyTextCache.size > 64) stickyTextCache.delete(stickyTextCache.keys().next().value!);
+    }
+    return value;
+  };
+  const layoutAt = (fontSize: number) => {
+    const lineHeight = Math.ceil(fontSize * 1.3);
+    const maxLines = Math.floor(height / lineHeight);
+    const measure = (value: string) => measureText(value, fontSize);
+    const wrapped =
+      maxLines > 0 && measure('…') <= width
+        ? wrapEditableText(text, width, maxLines, measure)
+        : { lines: [], truncated: text.length > 0 };
+    const oversized = wrapped.lines.findIndex((line) => measure(line) > width);
+    if (oversized !== -1) {
+      wrapped.lines = wrapped.lines.slice(0, oversized + 1);
+      wrapped.truncated = true;
+    }
+    if (wrapped.truncated && wrapped.lines.length) {
+      const last = wrapped.lines.length - 1;
+      const characters = Array.from(
+        stickyGraphemes.segment(wrapped.lines[last]!),
+        (part) => part.segment,
+      );
+      while (characters.length && measure(`${characters.join('')}…`) > width) characters.pop();
+      wrapped.lines[last] = `${characters.join('')}…`;
+    }
+    return { fontSize, lineHeight, ...wrapped };
+  };
+  const preferred = layoutAt(preferredSize);
+  if (!preferred.truncated) return remember(preferred);
+  // Search a bounded range, not one layout per font pixel or per typed character.
+  // Keep the user's preferred size stored, so deleting text restores readability.
+  let lower = 8;
+  let upper = Math.floor(preferredSize);
+  let fitted = layoutAt(lower);
+  if (fitted.truncated) return remember(fitted);
+  while (lower < upper) {
+    const size = Math.ceil((lower + upper) / 2);
+    const candidate = layoutAt(size);
+    if (candidate.truncated) upper = size - 1;
+    else {
+      lower = size;
+      fitted = candidate;
+    }
+  }
+  return remember(fitted);
 }
 
 /** Shape labels use the same typography and wrapping as arrow labels. */
@@ -152,7 +216,7 @@ function stepNoteLayout(object: StepObject, bounds?: Rect): NoteLayout {
   const lineHeight = Math.ceil(fontSize * 1.3);
   const width = Math.min(200, Math.max(0, bounds?.width ?? 200));
   const maximumHeight = Math.min(100, Math.max(0, bounds?.height ?? 100));
-  const text = objectText(object).trim();
+  const text = objectText(object);
   const measure = (value: string) => measureText(value, fontSize);
   const wrapWithinHeight = (height: number) => {
     const maxLines = Math.floor(height / lineHeight);
@@ -194,6 +258,7 @@ function stepNoteLayout(object: StepObject, bounds?: Rect): NoteLayout {
   }
   return {
     rect: { x, y, width, height },
+    contentWidth: width,
     center: { x: x + width / 2, y: y + height / 2 },
     fontSize,
     lineHeight,

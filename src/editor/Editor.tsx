@@ -17,7 +17,8 @@ import { placeImage } from '../core/image-geometry';
 import { canReorderObject, reorderObject } from '../core/layers';
 import { deleteSelection } from '../core/selection';
 import { getArrowLabelLayout } from '../core/arrow-label';
-import { arrowMode as getArrowMode, withArrowMode } from '../core/arrows';
+import { LABEL_FONT_FAMILY } from '../core/label-layout';
+import { getTextLayout } from '../core/text-layout';
 import { DEFAULT_BRUSH, normalizeBrush } from '../core/brush';
 import { getNoteLayout, objectText, stickyTextColor, withObjectText } from '../core/notes';
 import { checkImageSize, exportFilename, flattenImage, loadImage } from '../export/image';
@@ -40,10 +41,10 @@ import { fitViewport, panViewport, zoomViewport, type Viewport } from './viewpor
 
 const HINTS: Record<Tool, string> = {
   select: 'Click to select · Shift-click to select multiple · Drag to move · Double-click to label',
-  arrow: 'Drag to point something out · Hold Shift for a straight arrow',
+  arrow: 'Drag a straight arrow · Select it and drag its middle handle to bend it',
   pen: 'Draw freely · Pen pressure supported',
   rectangle: 'Drag to frame a detail · Hold Shift for a square',
-  text: 'Click anywhere on the screenshot to add text',
+  text: 'Click to add wrapping text · Drag a side handle to change its width',
   sticky: 'Click or drag to place a note · Double-click to edit · Drag a corner to resize',
   redact: 'Drag over private details to cover them permanently on export',
   step: 'Click to add numbered steps · V to select and move them',
@@ -76,13 +77,13 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
     color: '#ffe58f',
     shadow: true,
   });
-  const [arrowMode, setArrowMode] = useState<'straight' | 'curved'>('curved');
   const [brush, setBrush] = useState<BrushSettings>(DEFAULT_BRUSH);
   const [viewport, setViewport] = useState<Viewport | null>(null);
   const [viewportSize, setViewportSize] = useState({ width: 1, height: 1 });
   const [spaceHeld, setSpaceHeld] = useState(false);
   const panGesture = useRef<{ id: number; start: Point; view: Viewport } | null>(null);
   const [editing, setEditing] = useState<EditingText | null>(null);
+  const liveEditing = useRef<EditingText | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -169,6 +170,7 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
         setImage(decoded);
         setTool('arrow');
         setViewport(null);
+        liveEditing.current = null;
         setEditing(null);
         setCancelToken((n) => n + 1);
       } catch (cause) {
@@ -390,7 +392,7 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
 
   useEffect(() => {
     if (editing) {
-      textInput.current?.focus();
+      textInput.current?.focus({ preventScroll: true });
       textInput.current?.select();
     }
   }, [editing?.object.id]);
@@ -534,24 +536,69 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
   }
 
   function startText(object: DrawingObject) {
-    setEditing({
-      object,
-      value: objectText(object),
-    });
+    const draft = { object, value: objectText(object) };
+    if (!previewText(draft)) return;
+    liveEditing.current = draft;
+    setEditing(draft);
+    state.select(object.id);
+  }
+
+  function previewText(draft: EditingText) {
+    const current = state.getCurrent();
+    const next = withObjectText(draft.object, draft.value);
+    const exists = current.objects.some((item) => item.id === next.id);
+    const document = {
+      ...current,
+      objects: exists
+        ? current.objects.map((item) => (item.id === next.id ? next : item))
+        : [...current.objects, next],
+    };
+    // Keep the input and painted draft in agreement when a huge paste exceeds
+    // the export safety budget. The last valid edit remains available to save.
+    if (!validateDocument.current(document)) return false;
+    state.preview(document);
+    return true;
+  }
+
+  function changeText(value: string) {
+    const current = liveEditing.current;
+    if (!current) return;
+    const draft = { ...current, value };
+    if (!previewText(draft)) return;
+    liveEditing.current = draft;
+    setEditing(draft);
+  }
+
+  function cancelText() {
+    const draft = liveEditing.current;
+    liveEditing.current = null;
+    setEditing(null);
+    state.preview(null);
+    if (draft && !state.getCurrent().objects.some((item) => item.id === draft.object.id))
+      state.select(null);
   }
 
   function finishText() {
-    if (!editing) return;
-    const value = editing.value.trim();
-    const object = editing.object;
+    const draft = liveEditing.current;
+    if (!draft) return;
+    // Clear synchronously: removing the textarea may dispatch a second blur.
+    liveEditing.current = null;
+    const value = draft.value;
+    const object = draft.object;
     const next = withObjectText(object, value);
-    const existing = state.committed.objects.some((item) => item.id === next.id);
+    const current = state.getCurrent();
+    const existing = current.objects.some((item) => item.id === next.id);
     if (existing) {
-      if (objectText(next) !== objectText(object)) updateObject(next);
-    } else if (value)
-      state.commit({ ...state.committed, objects: [...state.committed.objects, next] });
+      if (value !== objectText(object))
+        state.commit({
+          ...current,
+          objects: current.objects.map((item) => (item.id === next.id ? next : item)),
+        });
+      else state.preview(null);
+    } else if (value.trim()) state.commit({ ...current, objects: [...current.objects, next] });
+    else state.preview(null);
     setEditing(null);
-    state.select(value || existing ? next.id : null);
+    state.select(value.trim() || existing ? next.id : null);
   }
 
   async function rememberExport(blob: Blob, snapshot: EditorDocument) {
@@ -663,7 +710,7 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
         setCancelToken((n) => n + 1);
         state.select(null);
         setTool('select');
-        setEditing(null);
+        cancelText();
         return;
       }
       if (event.key === 'Delete' || event.key === 'Backspace') {
@@ -759,32 +806,23 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
     }
   }
 
-  const editingPoint =
-    editing?.object.type === 'arrow'
-      ? getArrowLabelLayout(
-          { ...editing.object, label: editing.value || 'Add a label…' },
-          state.doc.crop ?? contentBounds,
-        ).rect
-      : editing?.object.type === 'text'
-        ? editing.object.position
-        : editing
-          ? getNoteLayout(
-              withObjectText(editing.object, editing.value || 'Add a note…'),
-              state.doc.crop ?? contentBounds,
-            ).rect
-          : null;
+  const editingObject = editing ? withObjectText(editing.object, editing.value) : null;
+  const editingTextLayout = editingObject?.type === 'text' ? getTextLayout(editingObject) : null;
   const editingNoteLayout =
-    editing?.object.type === 'arrow'
-      ? getArrowLabelLayout(
-          { ...editing.object, label: editing.value || 'Add a label…' },
-          state.doc.crop ?? contentBounds,
-        )
-      : editing && editing.object.type !== 'text'
-        ? getNoteLayout(
-            withObjectText(editing.object, editing.value || 'Add a note…'),
-            state.doc.crop ?? contentBounds,
-          )
+    editingObject?.type === 'arrow'
+      ? getArrowLabelLayout(editingObject, state.doc.crop ?? undefined)
+      : editingObject && editingObject.type !== 'text'
+        ? getNoteLayout(editingObject, state.doc.crop ?? undefined)
         : null;
+  const editingLayout = editingTextLayout ?? editingNoteLayout;
+  const editingHeight = editingLayout
+    ? Math.max(1, editingLayout.lines.length) * editingLayout.lineHeight
+    : 0;
+  const editingWidth = editingLayout?.contentWidth ?? editingLayout?.rect.width ?? 0;
+  const editingColor =
+    editingObject?.type === 'sticky'
+      ? stickyTextColor(editingObject.style.color)
+      : editingObject?.style.color;
   const objectCount = state.doc.objects.length;
 
   return (
@@ -904,11 +942,6 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
                   if (selected?.type === 'text') updateObject({ ...selected, fontSize });
                 }}
                 onUpdate={updateObject}
-                arrowMode={selected?.type === 'arrow' ? getArrowMode(selected) : arrowMode}
-                onArrowMode={(mode) => {
-                  setArrowMode(mode);
-                  if (selected?.type === 'arrow') updateObject(withArrowMode(selected, mode));
-                }}
                 brush={selected?.type === 'pen' ? normalizeBrush(selected.brush) : brush}
                 onBrush={(value) => {
                   setBrush(value);
@@ -987,7 +1020,6 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
                   tool={tool}
                   setTool={setTool}
                   style={tool === 'sticky' ? stickyStyle : style}
-                  arrowMode={arrowMode}
                   brush={brush}
                   scale={scale}
                   selectedId={state.selectedId}
@@ -1023,78 +1055,51 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
                       {contentBounds.width} × {contentBounds.height}
                     </span>
                   </div>
-                  {editing && editingPoint && (
+                  {editing && editingLayout && (
                     <textarea
                       className={`inline-text-editor${editingNoteLayout ? ' inline-shape-editor' : ''}`}
                       ref={textInput}
                       aria-label="Edit label"
-                      placeholder="Add a label…"
+                      spellCheck={false}
                       style={{
-                        left: Math.max(
-                          0,
-                          Math.min(
-                            contentBounds.width * scale - 180,
-                            (editingPoint.x - contentBounds.x) * scale,
-                          ),
+                        left:
+                          ((editingNoteLayout
+                            ? editingNoteLayout.center.x - editingWidth / 2
+                            : editingLayout.rect.x) -
+                            contentBounds.x) *
+                          scale,
+                        top:
+                          ((editingNoteLayout
+                            ? editingNoteLayout.center.y -
+                              Math.min(editingLayout.rect.height, editingHeight) / 2
+                            : editingLayout.rect.y) -
+                            contentBounds.y) *
+                          scale,
+                        // Lay out in world pixels, then scale the native caret.
+                        // Re-measuring at zoomed font sizes changes wrapping/hinting.
+                        transform: `scale(${scale})`,
+                        width: Math.max(1, editingWidth),
+                        height: Math.max(
+                          1,
+                          // Leave room for the native caret's font ascent/descent.
+                          Math.ceil(Math.min(editingLayout.rect.height, editingHeight)) +
+                            Math.ceil(editingLayout.fontSize / 4),
                         ),
-                        top: Math.max(
-                          0,
-                          Math.min(
-                            contentBounds.height * scale - 50,
-                            (editingPoint.y - contentBounds.y) * scale,
-                          ),
-                        ),
-                        fontSize: Math.max(
-                          14,
-                          (editing.object.type === 'text'
-                            ? editing.object.fontSize
-                            : editing.object.type === 'arrow'
-                              ? (editing.object.labelFontSize ?? 20)
-                              : (editingNoteLayout?.fontSize ?? 20)) * scale,
-                        ),
-                        ...(editingNoteLayout
-                          ? {
-                              left: (editingNoteLayout.rect.x - contentBounds.x) * scale,
-                              top:
-                                (editingNoteLayout.center.y -
-                                  contentBounds.y -
-                                  Math.min(
-                                    editingNoteLayout.rect.height,
-                                    Math.max(1, editingNoteLayout.lines.length) *
-                                      editingNoteLayout.lineHeight,
-                                  ) /
-                                    2) *
-                                scale,
-                              width: Math.max(24, editingNoteLayout.rect.width * scale),
-                              height: Math.max(
-                                24,
-                                Math.min(
-                                  editingNoteLayout.rect.height,
-                                  Math.max(1, editingNoteLayout.lines.length) *
-                                    editingNoteLayout.lineHeight,
-                                ) * scale,
-                              ),
-                              fontSize: editingNoteLayout.fontSize * scale,
-                              background:
-                                editing.object.type === 'sticky'
-                                  ? editing.object.style.color
-                                  : 'transparent',
-                              color:
-                                editing.object.type === 'sticky'
-                                  ? stickyTextColor(editing.object.style.color)
-                                  : editing.object.style.color,
-                              fontWeight: 500,
-                              lineHeight: `${editingNoteLayout.lineHeight * scale}px`,
-                            }
-                          : {}),
+                        fontFamily: LABEL_FONT_FAMILY,
+                        fontSize: editingLayout.fontSize,
+                        fontWeight: 500,
+                        lineHeight: `${editingLayout.lineHeight}px`,
+                        caretColor: editingColor,
                       }}
                       value={editing.value}
-                      onChange={(event) => setEditing({ ...editing, value: event.target.value })}
+                      onChange={(event) => changeText(event.target.value)}
                       onBlur={finishText}
                       onKeyDown={(event) => {
+                        if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229)
+                          return;
                         if (event.key === 'Escape') {
                           event.preventDefault();
-                          setEditing(null);
+                          cancelText();
                         }
                         if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
                           event.preventDefault();

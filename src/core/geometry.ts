@@ -3,6 +3,7 @@ import { getArrowLabelLayout, moveArrowLabelBy } from './arrow-label';
 import { arrowControl } from './arrows';
 import { getNoteLayout } from './notes';
 import { penOutline } from './brush';
+import { getTextLayout } from './text-layout';
 
 export { arrowLabelFontSize, hitTestArrowLabel, moveArrowLabelBy } from './arrow-label';
 
@@ -31,11 +32,12 @@ export function getArrowLabelPosition(arrow: ArrowObject): Point {
 }
 
 export function textDimensions(text: string, fontSize: number): { width: number; height: number } {
-  const lines = text.split('\n');
-  return {
-    width: Math.max(1, ...lines.map((line) => line.length)) * fontSize * 0.62,
-    height: Math.max(1, lines.length) * fontSize * 1.3,
-  };
+  const { rect } = getTextLayout({
+    position: { x: 0, y: 0 },
+    text,
+    fontSize,
+  });
+  return { width: rect.width, height: rect.height };
 }
 
 export function normalizeRect(a: Point, b: Point): Rect {
@@ -97,7 +99,7 @@ export function moveArrowHandle(
     const middle = getArrowLabelPosition(arrow);
     return moveArrowLabelBy(arrow, { x: point.x - middle.x, y: point.y - middle.y });
   }
-  if (handle === 'control') return { ...arrow, control: { ...point } };
+  if (handle === 'control') return { ...arrow, mode: 'curved', control: { ...point } };
   // Preserve the bend relative to the chord when either endpoint is dragged.
   const previous = arrow[handle];
   return {
@@ -135,8 +137,10 @@ function baseObjectBounds(object: DrawingObject, sceneBounds?: Rect): Rect {
     }
     case 'pen':
       return boundsOfPoints(penBoundary(object));
-    case 'text':
-      return { ...object.position, ...textDimensions(object.text, object.fontSize) };
+    case 'text': {
+      const layout = getTextLayout(object);
+      return { ...layout.rect, width: Math.max(layout.rect.width, layout.inkWidth) };
+    }
     case 'rectangle':
       return expand(object.rect, object.style.width / 2 + (object.style.sketch ? 2 : 0));
     case 'step':

@@ -21,6 +21,7 @@ export function drawLabelText(
   ctx.rect(clip.x, clip.y, clip.width, clip.height);
   ctx.clip();
   ctx.font = `500 ${fontSize}px ${LABEL_FONT_FAMILY}`;
+  ctx.fontKerning = 'normal';
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'center';
   ctx.fillStyle = color;

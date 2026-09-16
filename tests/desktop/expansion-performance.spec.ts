@@ -64,6 +64,8 @@ test('moving an image layer previews directly without reallocating expanded scen
 test('outward dragging never resizes or blanks the visible canvas', async ({ desktop: page }) => {
   await capture(page);
   await addArrow(page);
+  // Start a whole-arrow move, not a drag of its selected midpoint bend handle.
+  await page.keyboard.press('Escape');
   const source = (await page.locator('.image-stage').boundingBox())!;
   const scale = source.width / 960;
   const sample = { x: source.x + 50 * scale, y: source.y + 45 * scale };
@@ -92,10 +94,16 @@ test('outward dragging never resizes or blanks the visible canvas', async ({ des
     requestAnimationFrame(sampleFrame);
     Object.assign(window, { expansionProbe: { state, observer } });
   }, sample);
-  await page.mouse.move(source.x + 390 * scale, source.y + 266 * scale);
+  await page.mouse.move(source.x + 390 * scale, source.y + 230 * scale);
   await page.mouse.down();
   await page.mouse.move(source.x - 90, source.y - 55, { steps: 40 });
   await page.mouse.up();
+  await expect
+    .poll(async () => Number(await page.getByTestId('drawing-canvas').getAttribute('data-world-x')))
+    .toBeLessThan(0);
+  await expect
+    .poll(async () => Number(await page.getByTestId('drawing-canvas').getAttribute('data-world-y')))
+    .toBeLessThan(0);
   const result = await page.evaluate(async () => {
     await new Promise<void>((resolve) =>
       requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
@@ -127,9 +135,10 @@ test('expanded workspace stays transparent while the PNG includes white extra sp
 }, testInfo) => {
   await capture(page);
   await addArrow(page);
+  await page.keyboard.press('Escape');
   const initial = (await page.locator('.image-stage').boundingBox())!;
   const scale = initial.width / 960;
-  await page.mouse.move(initial.x + 390 * scale, initial.y + 266 * scale);
+  await page.mouse.move(initial.x + 390 * scale, initial.y + 230 * scale);
   await page.mouse.down();
   await page.mouse.move(initial.x - 90, initial.y - 55, { steps: 20 });
   await page.mouse.up();

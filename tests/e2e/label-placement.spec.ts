@@ -7,7 +7,6 @@ test('arrow tail labels drag independently and export only colored text', async 
   extensionId,
 }) => {
   await openImageEditor(page, extensionId, 'effects');
-  await page.getByRole('button', { name: 'Straight', exact: true }).click();
   await page.getByRole('button', { name: 'Clean', exact: true }).click();
   await dragOnCanvas(page, { x: 300, y: 320 }, { x: 720, y: 320 });
   await page.getByRole('checkbox', { name: 'Shadow', exact: true }).uncheck();

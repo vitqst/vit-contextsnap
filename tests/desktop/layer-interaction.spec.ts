@@ -26,7 +26,6 @@ async function addImage(page: Page) {
 
 async function addArrow(page: Page) {
   await page.getByRole('button', { name: 'Arrow (A)', exact: true }).click();
-  await page.getByRole('button', { name: 'Straight', exact: true }).click();
   await page.getByRole('button', { name: 'Clean', exact: true }).click();
   await page.getByRole('checkbox', { name: 'Shadow', exact: true }).uncheck();
   await page.getByRole('slider', { name: 'Thickness' }).press('End');

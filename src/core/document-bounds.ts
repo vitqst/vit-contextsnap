@@ -1,6 +1,5 @@
 import type { DrawingObject, Rect } from './model';
 import { objectBounds } from './geometry';
-import { measureText } from './label-layout';
 import { objectShadow, shadowBounds } from './shadows';
 
 // Gestures and history replace edited objects rather than mutating them. Reuse
@@ -43,10 +42,6 @@ export function objectVisualBounds(object: DrawingObject): Rect {
     padding = Math.max(0, 3 - object.style.width) / 2;
   } else if (object.type === 'text') {
     padding = Math.max(3, object.fontSize / 7) / 2;
-    rect.width = Math.max(
-      rect.width,
-      ...object.text.split('\n').map((line) => measureText(line, object.fontSize)),
-    );
   }
   const extent = shadowBounds(
     {

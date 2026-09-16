@@ -22,6 +22,18 @@ below; the Chrome extension ZIP is not a desktop installer. Windows is not a des
   Space to select a window; press Escape to cancel.
 - Reuses arrows, editable labels, free drawing, rectangles, text, sticky notes, numbered
   steps, magnifiers, blur, solid redaction, crop, image layers, and undo/redo.
+- Notes update directly on the canvas while you type, automatically shrinking text to fit
+  the card. Deleting text restores its preferred size. Very large notes stop shrinking at
+  8px; enlarge the card if its text still overflows. The complete text is always retained.
+- **Text (T)** creates a transparent, wrapping text box. Select it and drag either side
+  handle to change its width; its height grows with the content without a line-count cap
+  (the overall export size limit still applies). Notes and text keep native text selection,
+  paste, and input-method support. **Ctrl/Cmd+Enter** finishes an edit, **Escape** cancels it,
+  and finishing creates one undoable text edit, not an undo entry for every keystroke.
+- New arrows are straight. Select an arrow and drag its middle handle to bend it; there
+  is no separate Straight/Curved mode switch.
+- Text, notes, and labels use locally bundled **Playpen Sans**, including Vietnamese.
+  Font loading does not contact Google or require an internet connection.
 - Every drawing element, including text, labels, and inserted images, supports a configurable
   **Shadow**. Choose **Soft** (default), **Hard**, or turn it off in Drawing properties.
   Shadows scale with zoom and are included in PNG export; crop and selection guides are not.

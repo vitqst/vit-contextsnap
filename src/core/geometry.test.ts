@@ -86,6 +86,26 @@ describe('quadratic arrow geometry', () => {
     expect(arrow.end).toEqual({ x: 200, y: 0 });
   });
 
+  it.each([undefined, 'straight', 'curved'] as const)(
+    'switches %s arrows to curved when the bend handle is dragged without moving labels or endpoints',
+    (mode) => {
+      const original: ArrowObject = { ...arrow, mode };
+      const before = structuredClone(original);
+      const bent = moveArrowHandle(original, 'control', { x: 120, y: 180 });
+      expect(bent).toEqual({ ...original, mode: 'curved', control: { x: 120, y: 180 } });
+      expect(original).toEqual(before);
+      expect(hitTestObject({ ...bent, label: '' }, { x: 110, y: 90 }, 2)).toBe(true);
+    },
+  );
+
+  it('keeps a straight arrow straight when an endpoint is dragged', () => {
+    const straight: ArrowObject = { ...arrow, mode: 'straight' };
+    const moved = moveArrowHandle(straight, 'end', { x: 300, y: 40 });
+    expect(moved.mode).toBe('straight');
+    expect(moved.labelOffset).toEqual(straight.labelOffset);
+    expect(hitTestObject({ ...moved, label: '' }, { x: 150, y: 20 }, 2)).toBe(true);
+  });
+
   it('uses a straight mode for hit testing even when a stored curved handle exists', () => {
     const straight = { ...arrow, label: '', mode: 'straight' as const };
     expect(hitTestObject(straight, { x: 100, y: 0 }, 2)).toBe(true);

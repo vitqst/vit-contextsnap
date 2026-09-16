@@ -188,8 +188,10 @@ test('real clipboard paste and file drop insert layers without intercepting text
   await text.press('Control+v');
   expect(await textPaste).toEqual({ files: 1, prevented: false });
   await expect(text).toHaveValue('Keep this note');
-  await expect(page.getByTestId('object-count')).toHaveText('1 object');
+  // The live text draft is already painted/countable, but paste adds no image layer.
+  await expect(page.getByTestId('object-count')).toHaveText('2 objects');
   await text.press('Escape');
+  await expect(page.getByTestId('object-count')).toHaveText('1 object');
   const transfer = await page.evaluateHandle((encoded) => {
     const bytes = Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
     const data = new DataTransfer();

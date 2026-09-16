@@ -467,28 +467,35 @@
 }
 .inline-text-editor {
   position: absolute;
-  min-width: 160px;
-  max-width: 320px;
-  min-height: 52px;
-  background: #fffffff7;
-  color: var(--ink);
-  border: 1px solid var(--accent);
-  border-radius: 4px;
-  padding: 7px 10px;
-  outline: 3px solid #ddd7ff55;
-  box-shadow: 0 3px 12px #39277019;
-  resize: both;
-  z-index: 5;
-  line-height: 1.4;
-}
-.inline-shape-editor {
   min-width: 0;
   max-width: none;
   min-height: 0;
   padding: 0;
-  text-align: center;
-  resize: none;
+  border: 0;
+  border-radius: 0;
+  outline: none;
   box-shadow: none;
+  background: transparent;
+  /* The canvas paints the live draft (including shadows and magnifiers).
+     Keep native caret, selection, IME and text clipboard behavior on top. */
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  overflow: hidden;
+  resize: none;
+  white-space: break-spaces;
+  font-kerning: normal;
+  transform-origin: top left;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  text-align: left;
+  z-index: 5;
+}
+.inline-shape-editor {
+  text-align: center;
+}
+.inline-text-editor:focus-visible {
+  /* The selected object's canvas boundary is the focus indicator. */
+  outline: none;
 }
 .shadow-option {
   display: flex;

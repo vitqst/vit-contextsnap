@@ -1,0 +1,11 @@
+@font-face {
+  font-family: 'Playpen Sans';
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: block;
+  src: url('../assets/fonts/PlaypenSans-Variable.ttf') format('truetype');
+}
+
+:root {
+  --annotation-font: 'Playpen Sans', system-ui, sans-serif;
+}

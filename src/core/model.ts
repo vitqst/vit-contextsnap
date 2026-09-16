@@ -77,6 +77,8 @@ export interface TextObject extends ObjectBase {
   position: Point;
   text: string;
   fontSize: number;
+  /** Fixed wrapping width in source pixels. Omitted legacy objects keep automatic width. */
+  width?: number;
 }
 
 export interface StepObject extends ObjectBase {
