@@ -1,0 +1,26 @@
+/* A native window is the viewport; only the image and tool panels scroll internally. */
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.editor-app {
+  height: 100%;
+  min-height: 0;
+}
+
+/* Keep wheel/trackpad scrolling, without desktop scrollbars over the editor. */
+.stage-scroll,
+.properties-panel,
+.drawing-toolbar {
+  scrollbar-width: none;
+}
+
+.stage-scroll::-webkit-scrollbar,
+.properties-panel::-webkit-scrollbar,
+.drawing-toolbar::-webkit-scrollbar {
+  display: none;
+}

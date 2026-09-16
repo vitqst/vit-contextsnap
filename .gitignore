@@ -3,6 +3,7 @@ node_modules/
 .output/
 test-results/
 playwright-report/
+.desktop-test-results/
 *.log
 .DS_Store
 .env
@@ -10,3 +11,8 @@ playwright-report/
 !.env.example
 coverage/
 .worktrees/
+desktop/dist/
+desktop/src-tauri/target/
+desktop/src-tauri/gen/
+# Local WebKit Inspector recordings can contain private screenshots.
+desktop/src-tauri/*-recording.json

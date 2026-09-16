@@ -39,7 +39,7 @@ function recordIsValid(value: unknown): value is CaptureRecord {
     record.url.length <= 16384 &&
     typeof record.createdAt === 'string' &&
     Number.isFinite(Date.parse(record.createdAt)) &&
-    ['visible', 'area', 'import'].includes(record.mode ?? '')
+    ['visible', 'area', 'import', 'screen'].includes(record.mode ?? '')
   );
 }
 

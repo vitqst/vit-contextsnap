@@ -33,14 +33,14 @@ describe('scene paint and hit-test order', () => {
     expect(hit?.id).toBe('redaction');
   });
 
-  it('selects a visible annotation above a blur created later', () => {
+  it('keeps protected blur above the content that it processes', () => {
     const hit = objectsInPaintOrder([step, blur])
       .reverse()
       .find((object) => hitTestObject(object, { x: 100, y: 100 }, 0));
-    expect(hit?.id).toBe('step');
+    expect(hit?.id).toBe('blur');
   });
 
-  it('uses stable image, blur, lens, annotation, redaction passes without mutating document order', () => {
+  it('preserves normal object order while keeping privacy effects last', () => {
     const objects: DrawingObject[] = [
       redaction,
       step,
@@ -53,42 +53,51 @@ describe('scene paint and hit-test order', () => {
     ];
     const original = objects.map((object) => object.id);
     expect(objectsInPaintOrder(objects).map((object) => object.id)).toEqual([
+      'step',
+      'lens',
+      'step-2',
+      'lens-2',
       'image',
       'image-2',
       'blur',
-      'lens',
-      'lens-2',
-      'step',
-      'step-2',
       'redaction',
     ]);
     expect(objects.map((object) => object.id)).toEqual(original);
     expect(objectsInPaintOrder([])).toEqual([]);
   });
+
+  it('selects the later normal object, including across image, annotation, and lens types', () => {
+    const hit = objectsInPaintOrder([lens, step])
+      .reverse()
+      .find((object) => hitTestObject(object, { x: 100, y: 100 }, 0));
+    expect(hit?.id).toBe('step');
+    expect(objectsInPaintOrder([step, image]).at(-1)?.id).toBe('image');
+    expect(objectsInPaintOrder([image, step]).at(-1)?.id).toBe('step');
+  });
 });
 
-describe('same-family object ordering', () => {
+describe('cross-type object ordering', () => {
   const secondImage: DrawingObject = { ...image, id: 'image-2' };
   const thirdImage: DrawingObject = { ...image, id: 'image-3' };
   const objects = [image, step, blur, secondImage, lens, thirdImage, redaction];
 
-  it('brings an image forward by one image, leaving other families in place', () => {
+  it('brings an image forward across an annotation by one normal layer', () => {
     const original = [...objects];
     const reordered = reorderObject(objects, image.id, 'forward');
-    expect(reordered).toEqual([secondImage, step, blur, image, lens, thirdImage, redaction]);
+    expect(reordered).toEqual([step, image, blur, secondImage, lens, thirdImage, redaction]);
     expect(objects).toEqual(original);
-    expect(reordered[3]).toBe(image);
-    expect(reordered[1]).toBe(step);
+    expect(reordered[1]).toBe(image);
+    expect(reordered[0]).toBe(step);
   });
 
-  it('sends an image backward by one image without crossing into another family', () => {
+  it('sends an image backward across a magnifier', () => {
     expect(reorderObject(objects, thirdImage.id, 'backward')).toEqual([
       image,
       step,
       blur,
+      secondImage,
       thirdImage,
       lens,
-      secondImage,
       redaction,
     ]);
   });
@@ -96,9 +105,9 @@ describe('same-family object ordering', () => {
   it('allows different ordinary annotation types to reorder together', () => {
     const rectangle: DrawingObject = { ...base, id: 'rectangle', type: 'rectangle', rect };
     expect(reorderObject([step, image, rectangle, redaction], step.id, 'forward')).toEqual([
-      rectangle,
       image,
       step,
+      rectangle,
       redaction,
     ]);
   });
@@ -110,7 +119,7 @@ describe('same-family object ordering', () => {
     ).toEqual([secondRedaction, image, redaction, step]);
   });
 
-  it('reports image-family boundaries rather than document-array boundaries', () => {
+  it('reports normal-layer boundaries without crossing into protected privacy passes', () => {
     expect(canReorderObject(objects, image.id, 'backward')).toBe(false);
     expect(canReorderObject(objects, image.id, 'forward')).toBe(true);
     expect(canReorderObject(objects, secondImage.id, 'forward')).toBe(true);
@@ -126,6 +135,6 @@ describe('same-family object ordering', () => {
     expect(reorderObject(objects, thirdImage.id, 'forward')).toBe(objects);
     expect(reorderObject(objects, 'missing', 'forward')).toBe(objects);
     expect(reorderObject(frozen, redaction.id, 'backward')).toBe(frozen);
-    expect(reorderObject(frozen, image.id, 'forward')[0]).toBe(secondImage);
+    expect(reorderObject(frozen, image.id, 'forward')[0]).toBe(step);
   });
 });

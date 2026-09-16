@@ -331,7 +331,9 @@ export function Properties({
               <BringToFront size={15} />
             </IconButton>
           </div>
-          <p className="property-note">Images stay below drawings. Redaction stays on top.</p>
+          <p className="property-note">
+            Reorder images and drawings together. Privacy effects stay on top.
+          </p>
           <div className="object-actions">
             <span>Object</span>
             <IconButton label="Duplicate object" onClick={onDuplicate}>

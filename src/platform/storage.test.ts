@@ -36,6 +36,18 @@ afterEach(() => {
 });
 
 describe('local capture storage', () => {
+  it('retains flattened desktop screenshots without inventing a website URL', async () => {
+    await saveRecent({
+      ...recent('desktop'),
+      mode: 'screen',
+      url: '',
+      title: 'Desktop screenshot',
+    });
+    expect(await listRecent()).toMatchObject([
+      { id: 'desktop', mode: 'screen', url: '', title: 'Desktop screenshot' },
+    ]);
+  });
+
   it('hands the original image to an editor only once, even for concurrent loads', async () => {
     await putCapture(capture('capture-one'));
     const results = await Promise.all([takeCapture('capture-one'), takeCapture('capture-one')]);

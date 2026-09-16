@@ -1,6 +1,12 @@
 {
   "extends": "./.wxt/tsconfig.json",
-  "exclude": ["**/node_modules", ".output", ".worktrees"],
+  "exclude": [
+    "**/node_modules",
+    ".output",
+    ".worktrees",
+    "desktop/dist",
+    "desktop/src-tauri/target"
+  ],
   "compilerOptions": {
     "strict": true,
     "target": "ES2022",

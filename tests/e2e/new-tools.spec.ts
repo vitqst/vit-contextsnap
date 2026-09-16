@@ -15,39 +15,42 @@ async function clickPoint(page: Page, x: number, y: number) {
   await page.mouse.click(point.x, point.y);
 }
 
-async function redBounds(page: Page, png: Buffer) {
-  return page.evaluate(async (encoded) => {
-    const bytes = Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
-    const bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
-    const canvas = document.createElement('canvas');
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
-    const context = canvas.getContext('2d');
-    if (!context) throw new Error('Canvas unavailable');
-    context.drawImage(bitmap, 0, 0);
-    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-    let left = canvas.width;
-    let top = canvas.height;
-    let right = -1;
-    let bottom = -1;
-    for (let y = 0; y < canvas.height; y++) {
-      for (let x = 0; x < canvas.width; x++) {
-        const index = (y * canvas.width + x) * 4;
-        const red = pixels[index]!;
-        const green = pixels[index + 1]!;
-        const blue = pixels[index + 2]!;
-        if (red > 160 && red - green > 45 && red - blue > 45) {
-          left = Math.min(left, x);
-          top = Math.min(top, y);
-          right = Math.max(right, x);
-          bottom = Math.max(bottom, y);
+async function redBounds(page: Page, png: Buffer, maxY: number) {
+  return page.evaluate(
+    async ({ encoded, maxY }) => {
+      const bytes = Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
+      const bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
+      const canvas = document.createElement('canvas');
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Canvas unavailable');
+      context.drawImage(bitmap, 0, 0);
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      let left = canvas.width;
+      let top = canvas.height;
+      let right = -1;
+      let bottom = -1;
+      for (let y = 0; y < Math.min(canvas.height, maxY); y++) {
+        for (let x = 0; x < canvas.width; x++) {
+          const index = (y * canvas.width + x) * 4;
+          const red = pixels[index]!;
+          const green = pixels[index + 1]!;
+          const blue = pixels[index + 2]!;
+          if (red > 160 && red - green > 45 && red - blue > 45) {
+            left = Math.min(left, x);
+            top = Math.min(top, y);
+            right = Math.max(right, x);
+            bottom = Math.max(bottom, y);
+          }
         }
       }
-    }
-    bitmap.close();
-    if (right < 0) throw new Error('Expected visible red annotation pixels');
-    return { left, top, right, bottom };
-  }, png.toString('base64'));
+      bitmap.close();
+      if (right < 0) throw new Error('Expected visible red annotation pixels');
+      return { left, top, right, bottom };
+    },
+    { encoded: png.toString('base64'), maxY },
+  );
 }
 
 test('Step places consecutive numbers and keeps numbering through move, duplicate and undo', async ({
@@ -174,7 +177,9 @@ test('Magnifier enlarges a circular source region and resamples after movement',
   await expect(size).toHaveValue('72');
   const selected = await downloadPng(page);
   const inspection = await inspectPng(page, selected, [
-    { x: 388, y: 280 },
+    // Sample inside the enlarged blue patch, away from bicubic edge ringing
+    // when the source is the cached annotation canvas instead of an Image.
+    { x: 380, y: 280 },
     { x: 385, y: 335 },
   ]);
   expect(inspection.pixels[0]).toEqual([37, 99, 235, 255]);
@@ -214,7 +219,7 @@ test('Magnifier enlarges a circular source region and resamples after movement',
   ]);
 });
 
-test('long labels stay bounded and move with their arrow near an image edge', async ({
+test('long labels wrap, expand the canvas and drag independently near an image edge', async ({
   page,
   extensionId,
 }, testInfo) => {
@@ -230,7 +235,15 @@ test('long labels stay bounded and move with their arrow near an image edge', as
   await label.fill('W'.repeat(90));
   await label.blur();
   const wrapped = await downloadPng(page);
-  const before = await redBounds(page, wrapped);
+  const canvas = page.getByTestId('drawing-canvas');
+  const origin = {
+    x: Number(await canvas.getAttribute('data-world-x')),
+    y: Number(await canvas.getAttribute('data-world-y')),
+  };
+  expect(origin.x).toBeLessThan(0);
+  expect(origin.y).toBeLessThan(0);
+  // The label is above world y=0; exclude the arrow itself when measuring text.
+  const before = await redBounds(page, wrapped, -origin.y);
   expect(before.left, 'Annotation text must not run off the image left edge').toBeGreaterThan(3);
   expect(before.top, 'Annotation text must not run off the image top edge').toBeGreaterThan(3);
   expect(
@@ -238,14 +251,24 @@ test('long labels stay bounded and move with their arrow near an image edge', as
     'A long word must wrap instead of spanning the whole screenshot',
   ).toBeLessThan(500);
   expect(before.bottom, 'The long label should occupy multiple lines').toBeGreaterThan(80);
-  const labelBody = { x: (before.left + before.right) / 2, y: before.bottom - 10 };
-  await dragOnCanvas(page, labelBody, { x: labelBody.x + 80, y: labelBody.y });
-  const after = await redBounds(page, await downloadPng(page));
-  expect(
-    after.right - before.right,
-    'Dragging the attached label shifts its midpoint while respecting image bounds',
-  ).toBeGreaterThan(20);
-  expect(after.right - before.right).toBeLessThan(100);
+  await page.getByRole('button', { name: 'Fit to screen', exact: true }).click();
+  const frame = (await page.locator('.image-stage').boundingBox())!;
+  const scale = frame.width / Number(await canvas.getAttribute('data-world-width'));
+  const labelBody = {
+    x: frame.x + ((before.left + before.right) / 2) * scale,
+    y: frame.y + (before.top + 10) * scale,
+  };
+  await page.mouse.move(labelBody.x, labelBody.y);
+  await page.mouse.down();
+  await page.mouse.move(labelBody.x + 80 * scale, labelBody.y, { steps: 12 });
+  await page.mouse.up();
+  const moved = await downloadPng(page);
+  const movedOriginX = Number(await canvas.getAttribute('data-world-x'));
+  const movedOriginY = Number(await canvas.getAttribute('data-world-y'));
+  const after = await redBounds(page, moved, -movedOriginY);
+  // PNG coordinates rebase when the document shrinks on its left edge.
+  const movedDistance = after.right + movedOriginX - (before.right + origin.x);
+  expect(Math.abs(movedDistance - 80), 'The label moves 80 document pixels').toBeLessThan(2);
   const screenshot = testInfo.outputPath('wrapped-label.png');
   await page.screenshot({ path: screenshot });
   await testInfo.attach('wrapped-label.png', { path: screenshot, contentType: 'image/png' });

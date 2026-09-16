@@ -81,7 +81,7 @@ export async function openImageEditor(
 }
 
 export async function canvasPoint(page: Page, x: number, y: number) {
-  const bounds = await page.getByTestId('drawing-canvas').boundingBox();
+  const bounds = await page.locator('.screenshot-background').boundingBox();
   if (!bounds) throw new Error('Editor canvas is not visible');
   return {
     x: bounds.x + (x / imageSize.width) * bounds.width,

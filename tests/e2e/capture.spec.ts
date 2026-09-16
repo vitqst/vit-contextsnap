@@ -168,7 +168,7 @@ test.describe('native Chrome capture commands', () => {
       ).toBeVisible({
         timeout: 1_500,
       });
-      const canvas = await editor.getByTestId('drawing-canvas').boundingBox();
+      const canvas = await editor.locator('.screenshot-background').boundingBox();
       if (!canvas) throw new Error('Capture canvas missing');
       await editor.keyboard.down('Shift');
       await editor.mouse.move(canvas.x + canvas.width * 0.2, canvas.y + canvas.height * 0.2);

@@ -4,6 +4,8 @@ A Chrome extension for turning screenshots into clear visual feedback. Capture a
 draw expressive arrows, and copy the finished image into a chat, issue, or document.
 All processing and image storage stay on your device.
 
+For screenshots outside the browser, see the separate [Linux and macOS desktop app README](desktop/README.md).
+
 [Download for Chrome — v0.2.0](https://github.com/vitqst/vit-contextsnap/releases/download/v0.2.0/contextsnap-0.2.0-chrome.zip)
 · [Release notes](https://github.com/vitqst/vit-contextsnap/releases/tag/v0.2.0)
 · [MIT license](LICENSE)

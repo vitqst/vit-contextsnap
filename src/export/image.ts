@@ -2,20 +2,10 @@ import type { EditorDocument } from '../core/model';
 import type { CaptureRecord } from '../platform/types';
 import { drawScene } from '../editor/render';
 import type { ImageAssets } from '../editor/image-assets';
+import { documentBounds } from '../core/document-bounds';
+import { checkImageSize } from '../core/image-size';
 
-export const MAX_IMAGE_PIXELS = 32_000_000;
-export const MAX_IMAGE_SIDE = 16384;
-
-export function checkImageSize(width: number, height: number): void {
-  if (!Number.isFinite(width) || !Number.isFinite(height) || width < 1 || height < 1) {
-    throw new Error('This image has no readable pixels. Choose another image.');
-  }
-  if (width > MAX_IMAGE_SIDE || height > MAX_IMAGE_SIDE || width * height > MAX_IMAGE_PIXELS) {
-    throw new Error(
-      'This image is too large to edit safely. Use an image under 32 megapixels and 16,384 pixels per side.',
-    );
-  }
-}
+export { MAX_IMAGE_PIXELS, MAX_IMAGE_SIDE, checkImageSize } from '../core/image-size';
 
 export async function loadImage(blob: Blob): Promise<HTMLImageElement> {
   const url = URL.createObjectURL(blob);
@@ -38,7 +28,10 @@ export async function flattenImage(
   doc: EditorDocument,
   assets?: ImageAssets,
 ): Promise<Blob> {
-  const crop = doc.crop ?? { x: 0, y: 0, width: image.naturalWidth, height: image.naturalHeight };
+  const bounds = documentBounds(image.naturalWidth, image.naturalHeight, doc.objects);
+  checkImageSize(bounds.width, bounds.height);
+  const crop = doc.crop ?? bounds;
+  checkImageSize(Math.max(1, Math.round(crop.width)), Math.max(1, Math.round(crop.height)));
   const canvas = document.createElement('canvas');
   canvas.width = Math.max(1, Math.round(crop.width));
   canvas.height = Math.max(1, Math.round(crop.height));

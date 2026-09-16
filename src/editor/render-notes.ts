@@ -14,9 +14,13 @@ export function drawSticky(
   ctx.filter = 'none';
   clearShadow(ctx);
   if (object.style.shadow !== false) {
+    // Shadow blur and offsets are raster-space values, not transformed path units.
+    const transform = ctx.getTransform();
+    const rasterScale = Math.hypot(transform.a, transform.b);
     ctx.shadowColor = 'rgba(24, 24, 38, 0.22)';
-    ctx.shadowBlur = 14;
-    ctx.shadowOffsetY = 5;
+    ctx.shadowBlur = 14 * rasterScale;
+    ctx.shadowOffsetX = 5 * transform.c;
+    ctx.shadowOffsetY = 5 * transform.d;
   }
   const { x, y, width, height } = object.rect;
   ctx.fillStyle = object.style.color || '#ffe58f';

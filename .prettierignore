@@ -3,6 +3,11 @@ node_modules
 .output
 test-results
 playwright-report
+.desktop-test-results
 .worktrees
+desktop/dist
+desktop/src-tauri/target
+desktop/src-tauri/gen
+desktop/src-tauri/*-recording.json
 package-lock.json
 docs/spec/20260915-init-requirement.md

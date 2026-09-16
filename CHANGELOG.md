@@ -2,7 +2,33 @@
 
 ## Unreleased
 
-No changes yet.
+- Add a Linux/macOS desktop application using Tauri and Rust, with a separate desktop README.
+  Reuse the editor through host adapters for capture, clipboard, saving, settings, and close warnings.
+- Open system screenshot pickers, copy flattened PNGs to the native clipboard, and save with
+  a native dialog. Canceling capture or Save As preserves the current editing session.
+- Add a pixel blur fallback for WebViews without native Canvas filter support.
+- Keep the desktop editor in a tray/menu-bar icon after X, with Screenshot, Open editor, and
+  Quit actions; minimize instead when Linux has no tray host. Add native clipboard image paste.
+- Smooth fitted WebKit previews, add a 1:1 view, and allow full-workspace zoom/pan beneath
+  floating controls without desktop scrollbars.
+- Expand the document and PNG around annotations outside the original screenshot, including
+  negative coordinates. Preserve explicit crops and enforce safe raster-size limits.
+- Keep preview rasters viewport-sized and paint once per animation frame to avoid flashing
+  during expansion. Show white added space only in exports; retain transparent editor workspace.
+  Reuse image/blur/magnifier buffers when unrelated objects change the document bounds.
+- Include annotations in magnifiers using a shared nonrecursive cache while preserving
+  redaction before blur and lens sampling.
+- Share layer ordering across inserted images, annotations, and magnifiers; honor forward/backward
+  actions in both preview and export while keeping blur and redaction protected on top.
+- Add draggable crop corner/edge handles, crop movement, and magnifier rim resize handles,
+  with undo/redo and cancellation support at any zoom.
+- Reuse bounded high-quality display rasters and immutable object bounds during image dragging;
+  keep original pixels for 1:1 view and PNG export.
+- Paint the latest validated pointer position directly, removing the extra React-to-canvas frame
+  delay while preserving cancellation and history behavior.
+- Reduce CPU blur preview work with strength-scaled downsampling and reuse unchanged,
+  sanitized artwork when moving a blur. Keep redactions opaque and PNG blur full-resolution.
+  Document recording analysis, controlled drag benchmarks, and Excalidraw rendering patterns.
 
 ## 0.2.0-rc.3 — Label placement fixes
 

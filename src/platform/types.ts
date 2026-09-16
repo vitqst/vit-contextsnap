@@ -7,7 +7,7 @@ export interface CaptureRecord {
   title: string;
   url: string;
   createdAt: string;
-  mode: 'visible' | 'area' | 'import';
+  mode: 'visible' | 'area' | 'import' | 'screen';
 }
 
 /** Recent items are flattened exports only; no original image or editable object data. */

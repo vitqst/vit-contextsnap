@@ -150,24 +150,31 @@
 }
 .stage-scroll {
   position: absolute;
-  inset: 94px 0 68px 214px;
-  overflow: auto;
+  inset: 0;
+  overflow: hidden;
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: #d4d0e2 transparent;
 }
 .stage-content {
-  width: max-content;
-  min-width: 100%;
-  min-height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 48px;
+  position: absolute;
+  inset: 0;
 }
 .image-stage {
-  position: relative;
+  position: absolute;
   flex-shrink: 0;
+  pointer-events: none;
+}
+.image-stage textarea {
+  pointer-events: auto;
+}
+.pan-ready,
+.pan-ready canvas {
+  cursor: grab !important;
+}
+.pan-ready:active,
+.pan-ready:active canvas {
+  cursor: grabbing !important;
 }
 .image-caption {
   display: flex;
@@ -187,12 +194,17 @@
   gap: 6px;
   font-size: 9px;
 }
-.canvas-sheet {
-  position: relative;
+.screenshot-background {
+  position: absolute;
+  pointer-events: none;
   box-shadow:
     0 14px 50px #2520390d,
     0 2px 8px #25203908;
   background: white;
+}
+.canvas-sheet {
+  position: absolute;
+  inset: 0;
 }
 .canvas-sheet canvas {
   position: absolute;
@@ -672,9 +684,6 @@
   .color-row {
     flex-wrap: wrap;
     gap: 7px;
-  }
-  .stage-scroll {
-    left: 160px;
   }
   .toolbar-position {
     top: 15px;

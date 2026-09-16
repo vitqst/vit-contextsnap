@@ -128,7 +128,7 @@ test('image corners resize proportionally and moved assets survive duplicate, de
   expect((await downloadPng(page)).equals(moved)).toBe(true);
 });
 
-test('image order changes exported overlap and respects family boundaries and undo', async ({
+test('image order changes exported overlap and respects stack limits and undo', async ({
   page,
   extensionId,
 }) => {
@@ -243,8 +243,9 @@ test('privacy effects process inserted pixels regardless of creation order and c
       [0, 0, 0, 255],
     ]);
     await page.getByRole('button', { name: 'Select (V)', exact: true }).click();
-    // Grab the lens away from the redaction's hit tolerance at its right-hand side.
-    await dragOnCanvas(page, { x: 520, y: 320 }, { x: 80, y: 320 });
+    // A later image is now above the lens. Grab its exposed right side, outside
+    // both the inserted image and the redaction's hit tolerance.
+    await dragOnCanvas(page, { x: 620, y: 320 }, { x: 180, y: 320 });
     await page.getByRole('button', { name: 'Blur (B)', exact: true }).click();
     // The top edge borders white; the left edge borders the blue background fixture.
     await dragOnCanvas(page, { x: 420, y: 240 }, { x: 540, y: 290 });
@@ -271,7 +272,9 @@ test('a tiny image can be dragged by its center without accidentally resizing', 
     await page.getByRole('button', { name: 'Zoom out', exact: true }).click();
   }
   await expect
-    .poll(async () => (await page.getByTestId('drawing-canvas').boundingBox())?.width ?? Infinity)
+    .poll(
+      async () => (await page.locator('.screenshot-background').boundingBox())?.width ?? Infinity,
+    )
     .toBeLessThan(imageSize.width * 0.6);
   await dragOnCanvas(page, { x: 480, y: 320 }, { x: 560, y: 400 });
   await expect(page.getByLabel('Image dimensions', { exact: true })).toHaveText('30 × 20 px');

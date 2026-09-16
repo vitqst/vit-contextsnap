@@ -1,11 +1,13 @@
-import { ImagePlus, LockKeyhole } from 'lucide-react';
+import { Camera, ImagePlus, LockKeyhole } from 'lucide-react';
 
 interface Props {
   loading: boolean;
   onOpenImage: () => void;
+  capturing?: boolean;
+  onCapture?: () => void;
 }
 
-export function EmptyState({ loading, onOpenImage }: Props) {
+export function EmptyState({ loading, capturing, onOpenImage, onCapture }: Props) {
   return (
     <main className="empty-workspace">
       <div className="empty-illustration">
@@ -34,9 +36,19 @@ export function EmptyState({ loading, onOpenImage }: Props) {
         <br />
         and give your ideas a little more context.
       </p>
-      <button className="button primary open-image-button" onClick={onOpenImage} disabled={loading}>
+      {onCapture && (
+        <button className="button primary open-image-button" onClick={onCapture} disabled={loading}>
+          <Camera size={17} />
+          {capturing ? 'Capturing…' : 'Capture screenshot'}
+        </button>
+      )}
+      <button
+        className={`button${onCapture ? '' : ' primary'} open-image-button`}
+        onClick={onOpenImage}
+        disabled={loading}
+      >
         <ImagePlus size={17} />
-        {loading ? 'Opening…' : 'Open image'}
+        {loading && !capturing ? 'Opening…' : 'Open image'}
       </button>
       <span className="empty-hint">or drop an image here · PNG, JPEG, WebP</span>
       <div className="empty-local">

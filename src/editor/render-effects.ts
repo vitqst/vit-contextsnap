@@ -7,10 +7,19 @@ import type {
   RectangleObject,
 } from '../core/model';
 import type { ImageAssets } from './image-assets';
+import { blurPixels } from './blur';
+import { documentBounds } from '../core/document-bounds';
+import { checkImageSize } from '../core/image-size';
 
 interface ImageSize {
   width: number;
   height: number;
+}
+export interface SceneRenderOptions {
+  /** Expanded PNGs have a white background; the live workspace remains transparent. */
+  expandedBackground?: boolean;
+  /** Opt-in interactive CPU blur approximation; export keeps source-resolution pixels. */
+  previewEffects?: boolean;
 }
 interface CachedSource {
   canvas: HTMLCanvasElement;
@@ -69,11 +78,45 @@ export function drawRedaction(ctx: CanvasRenderingContext2D, rect: Rect): void {
   ctx.restore();
 }
 
+/** New canvas area is white, but transparent pixels within the original remain untouched. */
+export function drawExpandedBackground(
+  ctx: CanvasRenderingContext2D,
+  size: ImageSize,
+  bounds: Rect,
+): void {
+  ctx.save();
+  ctx.fillStyle = '#ffffff';
+  if (bounds.y < 0) ctx.fillRect(bounds.x, bounds.y, bounds.width, -bounds.y);
+  const bottom = bounds.y + bounds.height;
+  if (bottom > size.height) ctx.fillRect(bounds.x, size.height, bounds.width, bottom - size.height);
+  if (bounds.x < 0) ctx.fillRect(bounds.x, 0, -bounds.x, size.height);
+  const right = bounds.x + bounds.width;
+  if (right > size.width) ctx.fillRect(size.width, 0, right - size.width, size.height);
+  ctx.restore();
+}
+
+/** Ordinary annotations and lenses cannot change the screenshot-effects raster extent. */
+export function effectSourceBounds(
+  image: CanvasImageSource,
+  objects: readonly DrawingObject[],
+): Rect {
+  const size = sourceImageSize(image);
+  return documentBounds(
+    size.width,
+    size.height,
+    objects.filter(
+      (object) => object.type === 'image' || object.type === 'blur' || object.type === 'redact',
+    ),
+  );
+}
+
 /** The lens sees only this flattened screenshot layer, never raw masked source pixels. */
 export function getEffectSource(
   image: CanvasImageSource,
   objects: readonly DrawingObject[],
   assets?: ImageAssets,
+  sceneBounds?: Rect,
+  options: SceneRenderOptions = {},
 ): CanvasImageSource {
   const images = objects.filter((object) => object.type === 'image');
   // Validate even on cache hits: export must never silently omit an unavailable asset.
@@ -84,8 +127,7 @@ export function getEffectSource(
     (object): object is RectangleObject => object.type === 'redact',
   );
   const blurs = objects.filter((object): object is BlurObject => object.type === 'blur');
-  const hasLens = objects.some((object) => object.type === 'magnifier');
-  if (!images.length && !blurs.length && (!hasLens || !redactions.length)) {
+  if (!images.length && !blurs.length && !redactions.length) {
     const previous = sanitizedSources.get(image);
     if (previous) {
       previous.canvas.width = 1;
@@ -95,34 +137,77 @@ export function getEffectSource(
     return image;
   }
   const size = sourceImageSize(image);
+  const bounds = sceneBounds ?? effectSourceBounds(image, objects);
+  const expandedBackground = options.expandedBackground !== false;
+  checkImageSize(bounds.width, bounds.height);
   const signature = JSON.stringify([
-    size.width,
-    size.height,
+    bounds,
+    expandedBackground,
+    options.previewEffects === true,
     images.map((object) => [object.assetId, object.rect]),
     redactions.map((object) => object.rect),
     blurs.map((object) => [object.rect, blurStrength(object.strength)]),
   ]);
   const previous = sanitizedSources.get(image);
   if (previous?.signature === signature) return previous.canvas;
+  // Reusing the canvas overwrites its pixels. A failed filter must not leave the old
+  // signature pointing at a partially rendered (potentially unblurred) screenshot.
+  sanitizedSources.delete(image);
   const canvas = previous?.canvas ?? document.createElement('canvas');
-  if (canvas.width !== size.width) canvas.width = size.width;
-  if (canvas.height !== size.height) canvas.height = size.height;
+  if (canvas.width !== bounds.width || canvas.height !== bounds.height) {
+    // Drop old backing pixels before changing aspect ratio: width-first could
+    // transiently allocate oldHeight * newWidth far beyond the validated limit.
+    canvas.width = canvas.height = 1;
+    canvas.width = bounds.width;
+    canvas.height = bounds.height;
+  }
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('The image effects renderer could not start. Try a smaller image.');
-  ctx.clearRect(0, 0, size.width, size.height);
+  ctx.resetTransform();
+  ctx.clearRect(0, 0, bounds.width, bounds.height);
+  ctx.translate(-bounds.x, -bounds.y);
+  if (expandedBackground) drawExpandedBackground(ctx, size, bounds);
   ctx.drawImage(image, 0, 0);
   for (const object of images) {
     const asset = assets!.get(object.assetId)!;
     const { x, y, width, height } = object.rect;
     ctx.drawImage(asset.source, x, y, width, height);
   }
-  // Remove secrets before ANY filter samples neighboring pixels.
-  for (const object of redactions) drawRedaction(ctx, object.rect);
-  for (const object of blurs) drawBlurPatch(ctx, canvas, object, size);
-  // Filtering a black mask must not soften its original covered area.
-  for (const object of redactions) drawRedaction(ctx, object.rect);
+  applyPrivacyEffects(ctx, canvas, objects, bounds, options);
   sanitizedSources.set(image, { canvas, signature });
   return canvas;
+}
+
+/** Sanitize full-resolution pixels before blur, magnification, or viewport resampling. */
+export function applyPrivacyEffects(
+  ctx: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+  objects: readonly DrawingObject[],
+  bounds: Rect,
+  options: SceneRenderOptions = {},
+): void {
+  const redactions = objects.filter(
+    (object): object is RectangleObject => object.type === 'redact',
+  );
+  const blurs = objects.filter((object) => object.type === 'blur');
+  // Remove secrets before ANY filter samples neighboring pixels.
+  for (const object of redactions) drawRedaction(ctx, object.rect);
+  ctx.save();
+  ctx.resetTransform();
+  for (const object of blurs)
+    drawBlurPatch(
+      ctx,
+      canvas,
+      {
+        ...object,
+        rect: { ...object.rect, x: object.rect.x - bounds.x, y: object.rect.y - bounds.y },
+      },
+      bounds,
+      options,
+    );
+  ctx.restore();
+  // Filtering a black mask must not soften its original covered area.
+  for (const object of redactions) drawRedaction(ctx, object.rect);
 }
 
 function drawBlurPatch(
@@ -130,27 +215,36 @@ function drawBlurPatch(
   source: HTMLCanvasElement,
   object: BlurObject,
   size: ImageSize,
+  options: SceneRenderOptions,
 ): void {
   const rect = object.rect;
   if (rect.width <= 0 || rect.height <= 0) return;
   const sample = blurSampleBounds(rect, object.strength, size);
   if (!sample.width || !sample.height) return;
   const patch = document.createElement('canvas');
-  patch.width = sample.width;
-  patch.height = sample.height;
+  // Probe a tiny fresh context, not the destination where assigning .filter may
+  // already have created an inert own property in a filter-less WebView.
+  patch.width = patch.height = 1;
   const patchContext = patch.getContext('2d');
   if (!patchContext) throw new Error('The blur renderer could not start. Try a smaller area.');
-  patchContext.drawImage(
-    source,
-    sample.x,
-    sample.y,
-    sample.width,
-    sample.height,
-    0,
-    0,
-    sample.width,
-    sample.height,
-  );
+  const nativeFilter = Reflect.has(patchContext, 'filter');
+  const strength = blurStrength(object.strength);
+  // Keep a 2–4px working radius, with at most 8x reduction per axis. The source
+  // was redacted before reaching here: no hidden pixels enter any downsampling.
+  const reduction =
+    !nativeFilter && options.previewEffects === true
+      ? Math.min(8, 2 ** Math.floor(Math.log2(strength / 2)))
+      : 1;
+  patch.width = Math.max(1, Math.ceil(sample.width / reduction));
+  patch.height = Math.max(1, Math.ceil(sample.height / reduction));
+  drawBlurSample(source, sample, patchContext, patch.width, patch.height);
+  if (!nativeFilter) {
+    const pixels = patchContext.getImageData(0, 0, patch.width, patch.height);
+    pixels.data.set(
+      blurPixels(pixels, reduction === 1 ? Math.floor(strength) : Math.round(strength / reduction)),
+    );
+    patchContext.putImageData(pixels, 0, 0);
+  }
   ctx.save();
   ctx.beginPath();
   const left = Math.floor(rect.x);
@@ -166,17 +260,77 @@ function drawBlurPatch(
     Math.ceil(rect.x + rect.width) - left,
     Math.ceil(rect.y + rect.height) - top,
   );
-  ctx.filter = `blur(${blurStrength(object.strength)}px)`;
-  ctx.drawImage(patch, sample.x, sample.y);
+  ctx.filter = nativeFilter ? `blur(${strength}px)` : 'none';
+  if (reduction === 1) ctx.drawImage(patch, sample.x, sample.y);
+  else {
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(
+      patch,
+      0,
+      0,
+      patch.width,
+      patch.height,
+      sample.x,
+      sample.y,
+      sample.width,
+      sample.height,
+    );
+  }
   ctx.restore();
   patch.width = 1;
   patch.height = 1;
+}
+
+/** Progressive 2x reduction avoids WebKit aliasing on fine screenshot text/stripes. */
+function drawBlurSample(
+  source: HTMLCanvasElement,
+  sample: Rect,
+  destination: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+): void {
+  let current = source;
+  let area = sample;
+  let temporary: HTMLCanvasElement | null = null;
+  try {
+    while (area.width > width * 2 || area.height > height * 2) {
+      const next = document.createElement('canvas');
+      next.width = Math.max(width, Math.ceil(area.width / 2));
+      next.height = Math.max(height, Math.ceil(area.height / 2));
+      const ctx = next.getContext('2d');
+      if (!ctx) throw new Error('The blur renderer could not start. Try a smaller area.');
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(
+        current,
+        area.x,
+        area.y,
+        area.width,
+        area.height,
+        0,
+        0,
+        next.width,
+        next.height,
+      );
+      if (temporary) temporary.width = temporary.height = 1;
+      current = next;
+      temporary = next;
+      area = { x: 0, y: 0, width: next.width, height: next.height };
+    }
+    destination.imageSmoothingEnabled = true;
+    destination.imageSmoothingQuality = 'high';
+    destination.drawImage(current, area.x, area.y, area.width, area.height, 0, 0, width, height);
+  } finally {
+    if (temporary) temporary.width = temporary.height = 1;
+  }
 }
 
 export function drawMagnifier(
   ctx: CanvasRenderingContext2D,
   source: CanvasImageSource,
   lens: MagnifierObject,
+  sourceOrigin: Point = { x: 0, y: 0 },
 ): void {
   const { center } = lens;
   const radius = Math.max(1, lens.radius);
@@ -196,8 +350,8 @@ export function drawMagnifier(
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(
     source,
-    sample.x,
-    sample.y,
+    sample.x - sourceOrigin.x,
+    sample.y - sourceOrigin.y,
     sample.width,
     sample.height,
     center.x - radius,

@@ -25,7 +25,7 @@ export function reorderObject(
   id: string,
   direction: LayerDirection,
 ): readonly DrawingObject[];
-/** Swap adjacent members of the same paint family; never move an image above privacy effects. */
+/** Normal layers cross object types; privacy effects cannot be moved underneath content. */
 export function reorderObject(
   objects: readonly DrawingObject[],
   id: string,
@@ -65,9 +65,7 @@ function reorderIndices(
 }
 
 function paintLayer(object: DrawingObject): number {
-  if (object.type === 'image') return 0;
   if (object.type === 'blur') return 1;
-  if (object.type === 'magnifier') return 2;
-  if (object.type === 'redact') return 4;
-  return 3;
+  if (object.type === 'redact') return 2;
+  return 0;
 }

@@ -1,4 +1,4 @@
-import { ArrowLeft, Copy, Download, FolderOpen, ImagePlus } from 'lucide-react';
+import { ArrowLeft, Camera, Copy, Download, FolderOpen, ImagePlus } from 'lucide-react';
 import { Brand } from '../ui/Brand';
 import { IconButton } from '../ui/IconButton';
 
@@ -13,6 +13,8 @@ interface Props {
   onOpenImage: () => void;
   onDownloadImage: () => void;
   onCopyImage: () => void;
+  saveLabel: string;
+  onCapture?: () => void;
 }
 
 export function EditorHeader({
@@ -26,6 +28,8 @@ export function EditorHeader({
   onOpenImage,
   onDownloadImage,
   onCopyImage,
+  saveLabel,
+  onCapture,
 }: Props) {
   return (
     <header className="editor-header">
@@ -44,6 +48,18 @@ export function EditorHeader({
         )}
       </div>
       <div className="header-actions">
+        {onCapture && (
+          <button
+            className="button"
+            aria-label="Capture screenshot"
+            title="Capture screenshot (⌘ / Ctrl Shift S)"
+            disabled={busy}
+            onClick={onCapture}
+          >
+            <Camera size={16} />
+            <span>Capture</span>
+          </button>
+        )}
         {canReturn && (
           <button
             className="button source-button"
@@ -72,7 +88,7 @@ export function EditorHeader({
               <span>Add image</span>
             </button>
             <span className="divider" />
-            <IconButton label="Download PNG" disabled={busy} onClick={onDownloadImage}>
+            <IconButton label={saveLabel} disabled={busy} onClick={onDownloadImage}>
               <Download size={18} />
             </IconButton>
             <button className="button primary copy-button" disabled={busy} onClick={onCopyImage}>

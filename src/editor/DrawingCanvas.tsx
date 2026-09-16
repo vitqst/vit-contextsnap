@@ -1,5 +1,12 @@
 import { hitTestArrowLabel, moveArrowLabelBy } from '../core/arrow-label';
-import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react';
+import {
+  useEffect,
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
 import {
   newObjectBase,
   nextStepNumber,
@@ -34,13 +41,27 @@ import {
 } from '../core/image-geometry';
 import type { ImageAssets } from './image-assets';
 import { drawScene } from './render';
+import type { Viewport } from './viewport';
+import {
+  cropHandles,
+  hitTestCropHandle,
+  magnifierHandles,
+  moveCrop,
+  resizeCrop,
+  resizeMagnifier,
+  type CropHandle,
+} from '../core/tool-resize';
 
 interface Props {
   image: HTMLImageElement;
+  bounds: Rect;
+  camera: Viewport;
+  viewportSize: { width: number; height: number };
   assets: ImageAssets;
   doc: EditorDocument;
   committed: EditorDocument;
   getCurrent: () => EditorDocument;
+  getPreview: () => EditorDocument;
   tool: Tool;
   setTool: (tool: Tool) => void;
   style: ObjectStyle;
@@ -56,11 +77,12 @@ interface Props {
 }
 
 interface Gesture {
-  kind: 'draw' | 'move' | 'handle' | 'crop' | 'resize' | 'label';
+  kind: 'draw' | 'move' | 'handle' | 'crop' | 'crop-resize' | 'crop-move' | 'resize' | 'label';
   start: Point;
   object?: DrawingObject;
   handle?: ArrowHandle;
   imageHandle?: ImageHandle;
+  cropHandle?: CropHandle;
   doc: EditorDocument;
   latest: EditorDocument;
   moved: boolean;
@@ -78,24 +100,32 @@ function drawOverlay(
   scale: number,
   width: number,
   height: number,
+  origin: Point,
+  sceneBounds: Rect,
+  tool: Tool,
 ) {
-  ctx.clearRect(0, 0, width, height);
+  ctx.clearRect(origin.x, origin.y, width, height);
   if (doc.crop) {
     const { x, y, width: w, height: h } = doc.crop;
     ctx.fillStyle = '#24223388';
     ctx.beginPath();
-    ctx.rect(0, 0, width, height);
+    ctx.rect(origin.x, origin.y, width, height);
     ctx.rect(x, y, w, h);
     ctx.fill('evenodd');
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 1 / scale;
     ctx.strokeRect(x, y, w, h);
+    if (tool === 'crop') {
+      ctx.save();
+      ctx.strokeStyle = '#7966df';
+      drawSquareHandles(ctx, Object.values(cropHandles(doc.crop)), scale);
+      ctx.restore();
+    }
   }
   if (!selected) return;
   ctx.save();
   ctx.strokeStyle = '#7966df';
   ctx.lineWidth = 1.25 / scale;
-  const sceneBounds = doc.crop ?? { x: 0, y: 0, width, height };
   const bounds = objectBounds(selected, sceneBounds);
   const pad = 7 / scale;
   ctx.setLineDash([4 / scale, 3 / scale]);
@@ -111,22 +141,33 @@ function drawOverlay(
     });
   }
   if (selected.type === 'image' || selected.type === 'sticky' || selected.type === 'rectangle') {
-    const side = 9 / scale;
-    ctx.fillStyle = '#ffffff';
-    for (const point of Object.values(imageHandles(selected.rect))) {
-      ctx.fillRect(point.x - side / 2, point.y - side / 2, side, side);
-      ctx.strokeRect(point.x - side / 2, point.y - side / 2, side, side);
-    }
+    drawSquareHandles(ctx, Object.values(imageHandles(selected.rect)), scale);
+  }
+  if (selected.type === 'magnifier') {
+    drawSquareHandles(ctx, magnifierHandles(selected), scale);
   }
   ctx.restore();
+}
+
+function drawSquareHandles(ctx: CanvasRenderingContext2D, points: Point[], scale: number) {
+  const side = 9 / scale;
+  ctx.fillStyle = '#ffffff';
+  for (const point of points) {
+    ctx.fillRect(point.x - side / 2, point.y - side / 2, side, side);
+    ctx.strokeRect(point.x - side / 2, point.y - side / 2, side, side);
+  }
 }
 
 export function DrawingCanvas(props: Props) {
   const {
     image,
+    bounds,
+    camera,
+    viewportSize,
     assets,
     doc,
     getCurrent,
+    getPreview,
     tool,
     setTool,
     style,
@@ -135,49 +176,150 @@ export function DrawingCanvas(props: Props) {
     scale,
     selectedId,
     select,
-    preview,
+    preview: updatePreview,
     commit,
     editText,
     cancelToken,
   } = props;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
+  const frameRef = useRef<number | null>(null);
+  const paintRef = useRef<(() => void) | null>(null);
   const gesture = useRef<Gesture | null>(null);
-  const width = image.naturalWidth;
-  const height = image.naturalHeight;
+  const [pixelRatio, setPixelRatio] = useState(window.devicePixelRatio);
+  const { width, height } = bounds;
+  const density = Number.isFinite(pixelRatio) && pixelRatio > 0 ? pixelRatio : 1;
+  const rasterWidth = Math.max(1, Math.round(viewportSize.width * density));
+  const rasterHeight = Math.max(1, Math.round(viewportSize.height * density));
+  const schedulePaint = useCallback(() => {
+    if (frameRef.current !== null) return;
+    frameRef.current = requestAnimationFrame(() => {
+      frameRef.current = null;
+      paintRef.current?.();
+    });
+  }, []);
+  const preview = useCallback(
+    (next: EditorDocument | null) => {
+      updatePreview(next);
+      // Queue directly from input instead of waiting for a React preview render.
+      // Reuse any pending frame and read the latest accepted draft when it runs.
+      schedulePaint();
+    },
+    [updatePreview, schedulePaint],
+  );
 
   useEffect(() => {
-    const frame = requestAnimationFrame(() => {
+    const updateDensity = () => setPixelRatio(window.devicePixelRatio);
+    const query = window.matchMedia(`(resolution: ${pixelRatio}dppx)`);
+    query.addEventListener('change', updateDensity);
+    window.addEventListener('resize', updateDensity);
+    return () => {
+      query.removeEventListener('change', updateDensity);
+      window.removeEventListener('resize', updateDensity);
+    };
+  }, [pixelRatio]);
+
+  useEffect(
+    () => () => {
+      if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
+      paintRef.current = null;
+    },
+    [],
+  );
+
+  useLayoutEffect(() => {
+    // Keep one pending frame, updated with the latest document. Dimensions are
+    // assigned only here, immediately before painting, never by a React commit
+    // that would expose an empty bitmap while waiting for requestAnimationFrame.
+    paintRef.current = () => {
+      const current = getPreview();
+      for (const canvas of [canvasRef.current, overlayRef.current]) {
+        if (!canvas) continue;
+        if (canvas.width !== rasterWidth) canvas.width = rasterWidth;
+        if (canvas.height !== rasterHeight) canvas.height = rasterHeight;
+      }
       const ctx = canvasRef.current?.getContext('2d');
       const overlay = overlayRef.current?.getContext('2d');
       if (ctx) {
-        ctx.clearRect(0, 0, width, height);
-        drawScene(ctx, image, doc.objects, doc.crop ?? { x: 0, y: 0, width, height }, assets);
+        ctx.setTransform(
+          scale * density,
+          0,
+          0,
+          scale * density,
+          camera.x * density,
+          camera.y * density,
+        );
+        // Explicit raster filtering avoids the WebView's CSS image resampling.
+        // Only visible display pixels are allocated, regardless of document size.
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        drawScene(ctx, image, current.objects, current.crop ?? undefined, assets, {
+          expandedBackground: false,
+          previewEffects: true,
+        });
       }
-      if (overlay)
+      if (overlay) {
+        overlay.resetTransform();
+        overlay.clearRect(0, 0, rasterWidth, rasterHeight);
+        overlay.setTransform(
+          scale * density,
+          0,
+          0,
+          scale * density,
+          camera.x * density,
+          camera.y * density,
+        );
         drawOverlay(
           overlay,
-          doc,
-          doc.objects.find((item) => item.id === selectedId),
+          current,
+          current.objects.find((item) => item.id === selectedId),
           scale,
-          width,
-          height,
+          viewportSize.width / scale,
+          viewportSize.height / scale,
+          { x: -camera.x / scale, y: -camera.y / scale },
+          current.crop ?? bounds,
+          tool,
         );
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [doc, image, assets, width, height, scale, selectedId]);
+      }
+    };
+    schedulePaint();
+  }, [
+    doc,
+    getPreview,
+    schedulePaint,
+    image,
+    assets,
+    width,
+    height,
+    bounds.x,
+    bounds.y,
+    scale,
+    selectedId,
+    tool,
+    rasterWidth,
+    rasterHeight,
+    density,
+    camera.x,
+    camera.y,
+    viewportSize.width,
+    viewportSize.height,
+  ]);
 
   useEffect(() => {
     gesture.current = null;
     preview(null);
   }, [cancelToken, preview]);
 
-  function pointAt(clientX: number, clientY: number, clamp = true): Point {
-    const bounds = canvasRef.current!.getBoundingClientRect();
-    const x = ((clientX - bounds.left) * width) / bounds.width;
-    const y = ((clientY - bounds.top) * height) / bounds.height;
+  function pointAt(clientX: number, clientY: number, clamp = false): Point {
+    const frame = canvasRef.current!.getBoundingClientRect();
+    const x = (clientX - frame.left - camera.x) / scale;
+    const y = (clientY - frame.top - camera.y) / scale;
     return clamp
-      ? { x: Math.max(0, Math.min(width, x)), y: Math.max(0, Math.min(height, y)) }
+      ? {
+          x: Math.max(bounds.x, Math.min(bounds.x + width, x)),
+          y: Math.max(bounds.y, Math.min(bounds.y + height, y)),
+        }
       : { x, y };
   }
 
@@ -187,7 +329,7 @@ export function DrawingCanvas(props: Props) {
       .reverse()
       .find(
         (object) =>
-          hitTestObject(object, point, 8 / scale, current.crop ?? { x: 0, y: 0, width, height }) ||
+          hitTestObject(object, point, 8 / scale, current.crop ?? bounds) ||
           (includeInterior &&
             object.type === 'rectangle' &&
             point.x >= object.rect.x &&
@@ -212,9 +354,26 @@ export function DrawingCanvas(props: Props) {
     const point = pointAt(event.clientX, event.clientY);
     // blur() above can synchronously commit text: read the document after that commit.
     const committed = getCurrent();
-    const sceneBounds = committed.crop ?? { x: 0, y: 0, width, height };
+    const sceneBounds = committed.crop ?? bounds;
     if (tool === 'select') {
       const selected = committed.objects.find((object) => object.id === selectedId);
+      if (
+        selected?.type === 'magnifier' &&
+        magnifierHandles(selected).some(
+          (handle) => distance(point, handle) <= Math.min(11 / scale, selected.radius / 3),
+        )
+      ) {
+        gesture.current = {
+          kind: 'resize',
+          start: point,
+          object: selected,
+          doc: committed,
+          latest: committed,
+          moved: false,
+          pointerId: event.pointerId,
+        };
+        return;
+      }
       if (
         selected?.type === 'image' ||
         selected?.type === 'sticky' ||
@@ -286,8 +445,18 @@ export function DrawingCanvas(props: Props) {
     }
     if (tool === 'crop') {
       select(null);
+      const cropHandle = committed.crop
+        ? hitTestCropHandle(committed.crop, point, 11 / scale)
+        : null;
+      const inside =
+        committed.crop &&
+        point.x >= committed.crop.x &&
+        point.x <= committed.crop.x + committed.crop.width &&
+        point.y >= committed.crop.y &&
+        point.y <= committed.crop.y + committed.crop.height;
       gesture.current = {
-        kind: 'crop',
+        kind: cropHandle ? 'crop-resize' : inside ? 'crop-move' : 'crop',
+        cropHandle: cropHandle ?? undefined,
         start: point,
         doc: committed,
         latest: committed,
@@ -356,25 +525,45 @@ export function DrawingCanvas(props: Props) {
       preview(null);
       return;
     }
-    let point = pointAt(
-      event.clientX,
-      event.clientY,
-      active.kind === 'draw' || active.kind === 'crop',
-    );
+    let point = pointAt(event.clientX, event.clientY, active.kind === 'crop');
     active.moved ||= distance(point, active.start) > 1 / scale;
     let next = active.doc;
     if (active.kind === 'crop') {
       const rect = normalizeRect(active.start, point);
-      next = { ...active.doc, crop: clampRect(rect, width, height) };
+      const crop = clampRect(
+        { ...rect, x: rect.x - bounds.x, y: rect.y - bounds.y },
+        width,
+        height,
+      );
+      next = { ...active.doc, crop: { ...crop, x: crop.x + bounds.x, y: crop.y + bounds.y } };
+    } else if (active.kind === 'crop-resize' && active.doc.crop && active.cropHandle) {
+      next = {
+        ...active.doc,
+        crop: resizeCrop(
+          active.doc.crop,
+          active.cropHandle,
+          { x: point.x - active.start.x, y: point.y - active.start.y },
+          bounds,
+        ),
+      };
+    } else if (active.kind === 'crop-move' && active.doc.crop) {
+      next = {
+        ...active.doc,
+        crop: moveCrop(
+          active.doc.crop,
+          { x: point.x - active.start.x, y: point.y - active.start.y },
+          bounds,
+        ),
+      };
     } else if (active.object) {
       let object = active.object;
       if (active.kind === 'label') {
         const delta = { x: point.x - active.start.x, y: point.y - active.start.y };
-        const bounds = active.doc.crop ?? { x: 0, y: 0, width, height };
+        const labelBounds = active.doc.crop ?? undefined;
         object =
           object.type === 'arrow'
-            ? moveArrowLabelBy(object, delta, bounds)
-            : moveShapeLabelBy(object, delta, bounds);
+            ? moveArrowLabelBy(object, delta, labelBounds)
+            : moveShapeLabelBy(object, delta, labelBounds);
       } else if (active.kind === 'resize' && object.type === 'rectangle' && active.imageHandle) {
         const corners = imageHandles(object.rect);
         const opposite = { nw: 'se', ne: 'sw', se: 'nw', sw: 'ne' } as const;
@@ -385,6 +574,8 @@ export function DrawingCanvas(props: Props) {
         object = { ...object, rect: resizeImageRect(object.rect, active.imageHandle, point) };
       } else if (active.kind === 'resize' && object.type === 'sticky' && active.imageHandle) {
         object = resizeSticky(object, active.imageHandle, point);
+      } else if (active.kind === 'resize' && object.type === 'magnifier') {
+        object = resizeMagnifier(object, active.start, point);
       } else if (active.kind === 'handle' && object.type === 'arrow' && active.handle) {
         if (active.handle === 'control') {
           point = {
@@ -468,19 +659,20 @@ export function DrawingCanvas(props: Props) {
     if (event.currentTarget.hasPointerCapture(event.pointerId))
       event.currentTarget.releasePointerCapture(event.pointerId);
     const next = active.latest;
-    if (active.kind === 'crop') {
-      if (next.crop && next.crop.width >= 4 && next.crop.height >= 4) {
+    if (active.kind === 'crop' || active.kind === 'crop-resize' || active.kind === 'crop-move') {
+      if (active.moved && next.crop && next.crop.width >= 4 && next.crop.height >= 4) {
         const x = Math.round(next.crop.x);
         const y = Math.round(next.crop.y);
         const crop: Rect = {
           x,
           y,
-          width: Math.min(width, Math.round(next.crop.x + next.crop.width)) - x,
-          height: Math.min(height, Math.round(next.crop.y + next.crop.height)) - y,
+          // Gesture geometry already clamps new crops and preserves existing ones
+          // whose expanded content was removed. Do not clip them a second time.
+          width: Math.round(next.crop.x + next.crop.width) - x,
+          height: Math.round(next.crop.y + next.crop.height) - y,
         };
         commit({ ...next, crop });
       } else preview(null);
-      setTool('select');
       return;
     }
     if (
@@ -503,12 +695,14 @@ export function DrawingCanvas(props: Props) {
   }
 
   return (
-    <div className="canvas-sheet" style={{ width: width * scale, height: height * scale }}>
+    <div className="canvas-sheet">
       <canvas
         ref={canvasRef}
-        width={width}
-        height={height}
         data-testid="drawing-canvas"
+        data-world-x={bounds.x}
+        data-world-y={bounds.y}
+        data-world-width={bounds.width}
+        data-world-height={bounds.height}
         aria-label="Screenshot drawing canvas"
         style={{ cursor: tool === 'select' ? 'default' : tool === 'text' ? 'text' : 'crosshair' }}
         onPointerDown={onPointerDown}
@@ -533,13 +727,7 @@ export function DrawingCanvas(props: Props) {
           }
         }}
       />
-      <canvas
-        ref={overlayRef}
-        width={width}
-        height={height}
-        className="selection-layer"
-        aria-hidden="true"
-      />
+      <canvas ref={overlayRef} className="selection-layer" aria-hidden="true" />
     </div>
   );
 }
