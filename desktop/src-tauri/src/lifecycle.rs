@@ -28,8 +28,8 @@ impl TrayState {
         self.close_generation.fetch_add(1, Ordering::AcqRel) + 1
     }
 
-    fn cancel_pending_close(&self) {
-        self.close_generation.fetch_add(1, Ordering::AcqRel);
+    fn cancel_pending_close(&self) -> u64 {
+        self.begin_close()
     }
 
     fn is_current_close(&self, generation: u64) -> bool {
@@ -71,6 +71,24 @@ fn close_action(tray_created: bool, host_available: bool) -> CloseAction {
     }
 }
 
+#[cfg(target_os = "linux")]
+pub fn show_editor(window: &WebviewWindow) -> tauri::Result<()> {
+    use gtk::prelude::*;
+    let generation = window.state::<TrayState>().cancel_pending_close();
+    let target = window.clone();
+    window.run_on_main_thread(move || {
+        // A queued restoration must not override a newer close or capture.
+        if !target.state::<TrayState>().is_current_close(generation) {
+            return;
+        }
+        match target.gtk_window() {
+            Ok(window) => crate::activation::present_editor(window.upcast_ref()),
+            Err(error) => eprintln!("Could not restore the editor: {error}"),
+        }
+    })
+}
+
+#[cfg(not(target_os = "linux"))]
 pub fn show_editor(window: &WebviewWindow) -> tauri::Result<()> {
     window.state::<TrayState>().cancel_pending_close();
     // Show first so a failure to focus cannot leave the editor inaccessible.
@@ -402,6 +420,24 @@ mod tests {
         let older = state.begin_close();
         let newer = state.begin_close();
         assert!(!state.is_current_close(older));
+        assert!(state.is_current_close(newer));
+    }
+
+    #[test]
+    fn a_queued_restore_is_superseded_by_a_later_close_capture_or_open() {
+        let state = TrayState::new(true);
+        let restore = state.cancel_pending_close();
+        assert!(state.is_current_close(restore));
+        state.begin_close();
+        assert!(!state.is_current_close(restore));
+
+        let restore = state.cancel_pending_close();
+        prepare_capture(&state, || Ok::<bool, &str>(false), || Ok(())).unwrap();
+        assert!(!state.is_current_close(restore));
+
+        let restore = state.cancel_pending_close();
+        let newer = state.cancel_pending_close();
+        assert!(!state.is_current_close(restore));
         assert!(state.is_current_close(newer));
     }
 }

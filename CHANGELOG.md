@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Restore the existing editor's foreground focus after Linux/X11 capture using main-thread
+  GTK presentation and a fresh X11 timestamp, including hidden and minimized windows.
 - Add configurable Soft/Hard shadows to all drawing elements, text, labels, images, and effects.
   Keep opaque redactions and source-pixel shadow sizing in previews and expanded PNG exports.
 - Replace desktop screenshots immediately in the existing editor without a discard prompt;

@@ -23,6 +23,8 @@ tokio = { version = "1", features = ["time"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 ashpd = { version = "0.13", default-features = false, features = ["tokio", "screenshot"] }
+gtk = "0.18"
+gdkx11 = "0.18"
 url = "2"
 zbus = { version = "5", default-features = false, features = ["tokio"] }
 

@@ -53,6 +53,10 @@ below; the Chrome extension ZIP is not a desktop installer. Windows is not a des
 - The tray menu offers **Screenshot**, **Open editor**, and **Quit ContextSnap**.
   Screenshot captures without showing the old editor first and replaces unexported work
   without confirmation. Opening an image file and Quit still warn before discarding work.
+- On Linux/X11, capture completion restores and activates the existing editor with a fresh
+  native timestamp, avoiding GNOME's stale-focus “is ready” notification. This also covers
+  cancellation and capture errors. No desktop focus settings or always-on-top flags change.
+  On Wayland, whether GTK's activation request receives focus remains compositor-controlled.
 - **Quit** warns about unexported work; use the tray menu or **Ctrl+Q / Cmd+Q**.
   Closing the window no longer discards work or quits the app.
 
@@ -219,6 +223,17 @@ npm run desktop:build:web       # Desktop TypeScript and frontend production bui
 npm run desktop:test            # Rust image validation and native helper tests
 npx playwright install chromium webkit
 npm run desktop:test:e2e        # Editor tests with a simulated native bridge
+```
+
+The opt-in native activation regression briefly focuses **test-owned windows** on GNOME/X11.
+It checks that a hidden, minimized, or visible editor regains focus after a separate
+picker-like process, without creating another editor. It does not capture the screen or
+touch the document in a running ContextSnap instance:
+
+```sh
+cargo test --manifest-path desktop/src-tauri/Cargo.toml --lib \
+  activation::tests::capture_return_restores_focus_to_the_same_editor_window \
+  -- --ignored --exact --nocapture --test-threads=1
 ```
 
 Browser tests use synthetic screenshots and simulate the native bridge; they do not verify

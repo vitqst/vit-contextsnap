@@ -427,6 +427,8 @@ name = "contextsnap-desktop"
 version = "0.1.0"
 dependencies = [
  "ashpd",
+ "gdkx11",
+ "gtk",
  "image",
  "tauri",
  "tauri-build",

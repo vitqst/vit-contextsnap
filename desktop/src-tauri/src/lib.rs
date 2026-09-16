@@ -1,3 +1,5 @@
+#[cfg(target_os = "linux")]
+mod activation;
 mod capture;
 mod clipboard;
 mod image_io;
