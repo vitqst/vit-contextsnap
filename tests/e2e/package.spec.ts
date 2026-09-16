@@ -2,12 +2,12 @@ import { test, expect } from '@playwright/test';
 import { access, readFile, readdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
-test('release candidate has a Chrome-compatible build version and visible RC label', async () => {
+test('stable release has matching package and Chrome manifest versions', async () => {
   const manifest = JSON.parse(await readFile(resolve('.output/chrome-mv3/manifest.json'), 'utf8'));
   const pkg = JSON.parse(await readFile(resolve('package.json'), 'utf8'));
-  expect(pkg.version).toBe('0.2.0-rc.3');
-  expect(manifest.version).toBe('0.2.0.3');
-  expect(manifest.version_name).toBe(pkg.version);
+  expect(pkg.version).toBe('0.3.0');
+  expect(manifest.version).toBe(pkg.version);
+  expect(manifest.version_name ?? manifest.version).toBe(pkg.version);
 });
 
 test('production package is MV3 with on-demand access and bundled editor assets', async () => {

@@ -1,0 +1,102 @@
+name: Release desktop packages
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing GitHub release tag to build and publish
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-release-${{ inputs.release_tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            bundle: deb
+            artifact: linux
+          - os: macos-14
+            bundle: dmg
+            artifact: macos
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_tag || github.ref_name }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+      - name: Install Linux native dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev librsvg2-dev patchelf libayatana-appindicator3-dev
+      - run: npm ci
+      - name: Verify release version
+        shell: bash
+        run: |
+          version="${RELEASE_TAG#v}"
+          test "$(node -p "require('./package.json').version")" = "$version"
+          test "$(node -p "require('./desktop/src-tauri/tauri.conf.json').version")" = "$version"
+      - name: Build unsigned desktop package
+        run: npm run desktop:build -- --bundles ${{ matrix.bundle }} --no-sign --ci
+      - name: Name release asset
+        shell: bash
+        run: |
+          version="${RELEASE_TAG#v}"
+          mkdir -p release
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            package="$(find desktop/src-tauri/target/release/bundle/deb -maxdepth 1 -name '*.deb' -print -quit)"
+            test -n "$package"
+            cp "$package" "release/contextsnap-${version}-linux-amd64.deb"
+          else
+            package="$(find desktop/src-tauri/target/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
+            test -n "$package"
+            cp "$package" "release/contextsnap-${version}-macos-x64.dmg"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.artifact }}
+          path: release/*
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-*
+          path: release
+          merge-multiple: true
+      - name: Update release assets and checksums
+        shell: bash
+        run: |
+          version="${RELEASE_TAG#v}"
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "contextsnap-${version}-chrome.zip" --dir release
+          (cd release && sha256sum contextsnap-*) > release/SHA256SUMS
+          gh release upload "$RELEASE_TAG" release/*.deb release/*.dmg release/SHA256SUMS --repo "$GITHUB_REPOSITORY" --clobber
