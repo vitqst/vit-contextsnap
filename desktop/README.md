@@ -35,6 +35,10 @@ below; the Chrome extension ZIP is not a desktop installer. Windows is not a des
   (the overall export size limit still applies). Notes and text keep native text selection,
   paste, and input-method support. **Ctrl/Cmd+Enter** finishes an edit, **Escape** cancels it,
   and finishing creates one undoable text edit, not an undo entry for every keystroke.
+- Text backgrounds are **off by default**. Select a text object and enable **Card background**
+  in Drawing properties for a padded, rounded card with its own color. The card grows with
+  the text and uses the same Soft/Hard/Off shadow controls; it is included in copied images
+  and PNG exports. Turning it off keeps the text and restores its transparent background.
 - New arrows are straight. Select an arrow and drag its middle handle to bend it; there
   is no separate Straight/Curved mode switch.
 - Text, notes, and labels use locally bundled **Playpen Sans**, including Vietnamese.
@@ -51,6 +55,8 @@ below; the Chrome extension ZIP is not a desktop installer. Windows is not a des
   Redaction takes priority: overlapping text/stroke shadows are suppressed so they cannot
   expose the outline of covered content. Their configured shadow returns when the mask is moved.
 - With **Select (V)** active, **Shift-click** elements to add or remove them from the selection.
+  **Ctrl+A / Cmd+A** selects all editable elements, including image layers; **Escape** clears
+  the selection. Inside a text field, Ctrl/Cmd+A still selects only that field's text.
   **Delete / Backspace** or **Delete selected** removes the whole selection in one undoable
   action. Plain click selects one element; clicking empty space or Escape clears the selection.
 - **Copy image** puts a flattened PNG on the native system clipboard.

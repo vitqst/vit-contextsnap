@@ -151,6 +151,24 @@ describe('content-sized document canvas', () => {
     expect(bounds.x + bounds.width).toBeGreaterThanOrEqual(950 + measureText('WWWW', 28) + 2);
   });
 
+  it('exports the full optional text card padding and updates bounds when toggled or undone', () => {
+    const plain: DrawingObject = {
+      ...base,
+      type: 'text',
+      position: { x: -10, y: -20 },
+      text: 'Hi',
+      width: 100,
+      fontSize: 24,
+    };
+    const before = documentBounds(1, 1, [plain]);
+    const card = { ...plain, background: { enabled: true, color: '#ffe58f' } };
+    expect(documentBounds(1, 1, [card])).toEqual({ x: -22, y: -32, width: 124, height: 56 });
+    expect(documentBounds(1, 1, [plain])).toEqual(before);
+    const shadowed = { ...card, style: { ...base.style, shadow: true } };
+    expectContains(documentBounds(1, 1, [shadowed]), objectBounds(card));
+    expect(documentBounds(1, 1, [shadowed]).width).toBeGreaterThan(124);
+  });
+
   it('includes soft and hard shadows for every kind of object, without changing disabled extents', () => {
     const rect = { x: 200, y: 200, width: 100, height: 100 };
     const objects: DrawingObject[] = [

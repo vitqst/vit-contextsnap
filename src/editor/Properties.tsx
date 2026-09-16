@@ -1,5 +1,12 @@
 import { Copy, Trash2, BringToFront, SendToBack } from 'lucide-react';
-import type { BrushSettings, DrawingObject, ObjectStyle, Rect, Tool } from '../core/model';
+import type {
+  BrushSettings,
+  DrawingObject,
+  ObjectStyle,
+  Rect,
+  TextObject,
+  Tool,
+} from '../core/model';
 import { BrushProperties } from './BrushProperties';
 import {
   getNoteLayout,
@@ -27,6 +34,7 @@ interface Props {
   onUpdate: (object: DrawingObject) => void;
   onPreviewFontSize?: (value: number | null) => void;
   onAutoFontSize?: () => void;
+  onTextBackground: (change: Partial<NonNullable<TextObject['background']>>) => void;
   canBringForward: boolean;
   canSendBackward: boolean;
   onReorder: (direction: 'forward' | 'backward') => void;
@@ -47,6 +55,7 @@ export function Properties({
   onUpdate,
   onPreviewFontSize,
   onAutoFontSize,
+  onTextBackground,
   canBringForward,
   canSendBackward,
   onReorder,
@@ -143,17 +152,38 @@ export function Properties({
             </>
           )}
           {selected?.type === 'text' && (
-            <FontSizeControl
-              key={`${selected.id}-text`}
-              label="Font size"
-              value={selected.fontSize}
-              min={8}
-              max={Math.max(96, Math.ceil(selected.fontSize / 16) * 16)}
-              presets={[12, 16, 24, 32, 48, 64]}
-              onChange={onFontSize}
-              onPreview={onPreviewFontSize}
-              onCancelPreview={() => onPreviewFontSize?.(null)}
-            />
+            <>
+              <FontSizeControl
+                key={`${selected.id}-text`}
+                label="Font size"
+                value={selected.fontSize}
+                min={8}
+                max={Math.max(96, Math.ceil(selected.fontSize / 16) * 16)}
+                presets={[12, 16, 24, 32, 48, 64]}
+                onChange={onFontSize}
+                onPreview={onPreviewFontSize}
+                onCancelPreview={() => onPreviewFontSize?.(null)}
+              />
+              <label className="shadow-option">
+                <input
+                  type="checkbox"
+                  checked={selected.background?.enabled ?? false}
+                  onChange={(event) => onTextBackground({ enabled: event.target.checked })}
+                />
+                Card background
+              </label>
+              {selected.background?.enabled && (
+                <label className="custom-color">
+                  <input
+                    type="color"
+                    aria-label="Card color"
+                    value={selected.background.color}
+                    onChange={(event) => onTextBackground({ color: event.target.value })}
+                  />
+                  <span>{selected.background.color.toUpperCase()}</span>
+                </label>
+              )}
+            </>
           )}
         </>
       )}

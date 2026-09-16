@@ -3,7 +3,7 @@ import { getArrowLabelLayout, moveArrowLabelBy } from './arrow-label';
 import { arrowControl } from './arrows';
 import { getNoteLayout } from './notes';
 import { penOutline } from './brush';
-import { getTextLayout } from './text-layout';
+import { getTextCardRect, getTextLayout } from './text-layout';
 
 export { arrowLabelFontSize, hitTestArrowLabel, moveArrowLabelBy } from './arrow-label';
 
@@ -139,7 +139,12 @@ function baseObjectBounds(object: DrawingObject, sceneBounds?: Rect): Rect {
       return boundsOfPoints(penBoundary(object));
     case 'text': {
       const layout = getTextLayout(object);
-      return { ...layout.rect, width: Math.max(layout.rect.width, layout.inkWidth) };
+      return (
+        getTextCardRect(object, layout) ?? {
+          ...layout.rect,
+          width: Math.max(layout.rect.width, layout.inkWidth),
+        }
+      );
     }
     case 'rectangle':
       return expand(object.rect, object.style.width / 2 + (object.style.sketch ? 2 : 0));

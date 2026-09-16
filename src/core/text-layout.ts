@@ -4,6 +4,8 @@ import { wrapEditableText } from './text-wrap';
 
 export const DEFAULT_TEXT_WIDTH = 220;
 export const MIN_TEXT_WIDTH = 40;
+export const TEXT_CARD_PADDING = 12;
+export const TEXT_CARD_RADIUS = 6;
 export type TextHandle = 'w' | 'e';
 export interface TextLayout {
   rect: Rect;
@@ -63,8 +65,21 @@ export function getTextLayout(
   };
 }
 
+/** Background geometry never changes the text's original position or wrapping metrics. */
+export function getTextCardRect(object: TextObject, layout?: TextLayout): Rect | null {
+  if (!object.background?.enabled) return null;
+  const text = layout ?? getTextLayout(object);
+  return {
+    x: text.rect.x - TEXT_CARD_PADDING,
+    y: text.rect.y - TEXT_CARD_PADDING,
+    width: Math.max(text.rect.width, text.inkWidth) + TEXT_CARD_PADDING * 2,
+    height: text.rect.height + TEXT_CARD_PADDING * 2,
+  };
+}
+
 export function textHandles(object: TextObject): Record<TextHandle, Point> {
-  const { rect } = getTextLayout(object);
+  const layout = getTextLayout(object);
+  const rect = getTextCardRect(object, layout) ?? layout.rect;
   const y = rect.y + rect.height / 2;
   return { w: { x: rect.x, y }, e: { x: rect.x + rect.width, y } };
 }
@@ -85,10 +100,22 @@ export function hitTestTextHandle(
 
 export function resizeTextWidth(object: TextObject, handle: TextHandle, point: Point): TextObject {
   if (!Number.isFinite(point.x)) return object;
-  const { rect } = getTextLayout(object);
+  const layout = getTextLayout(object);
+  const card = getTextCardRect(object, layout);
+  const rect = card ?? layout.rect;
+  if (card && point.x === (handle === 'w' ? rect.x : rect.x + rect.width)) return object;
+  const padding = card ? TEXT_CARD_PADDING : 0;
   const anchor = handle === 'w' ? rect.x + rect.width : rect.x;
-  const width = Math.max(MIN_TEXT_WIDTH, handle === 'w' ? anchor - point.x : point.x - anchor);
-  const x = handle === 'w' ? anchor - width : anchor;
+  const width = Math.max(
+    MIN_TEXT_WIDTH,
+    (handle === 'w' ? anchor - point.x : point.x - anchor) - padding * 2,
+  );
+  // An indivisible glyph may remain wider than the requested wrapping width.
+  // Measure that resulting extent before positioning the left edge, keeping
+  // the opposite visible card edge fixed even when the card cannot get narrower.
+  const visibleWidth =
+    card && handle === 'w' ? Math.max(width, getTextLayout({ ...object, width }).inkWidth) : width;
+  const x = handle === 'w' ? anchor - visibleWidth - padding : anchor + padding;
   if (width === object.width && x === object.position.x) return object;
   return { ...object, position: { x, y: object.position.y }, width };
 }

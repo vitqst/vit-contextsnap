@@ -7,6 +7,9 @@ import { documentBounds } from './document-bounds';
 import {
   DEFAULT_TEXT_WIDTH,
   MIN_TEXT_WIDTH,
+  TEXT_CARD_PADDING,
+  TEXT_CARD_RADIUS,
+  getTextCardRect,
   getTextLayout,
   hitTestTextHandle,
   resizeTextWidth,
@@ -132,5 +135,99 @@ describe('text width handles', () => {
       position: { x: 200 - MIN_TEXT_WIDTH, y: 120 },
       width: MIN_TEXT_WIDTH,
     });
+  });
+});
+
+describe('optional text background cards', () => {
+  const card: TextObject = {
+    ...text,
+    background: { enabled: true, color: '#ffe58f' },
+  };
+
+  it('adds twelve-pixel padding without changing text position, wrapping or font metrics', () => {
+    expect(TEXT_CARD_PADDING).toBe(12);
+    expect(TEXT_CARD_RADIUS).toBe(6);
+    const layout = getTextLayout(card);
+    expect(layout).toEqual(getTextLayout(text));
+    expect(getTextCardRect(card, layout)).toEqual({
+      x: 88,
+      y: 108,
+      width: 124,
+      height: layout.rect.height + 24,
+    });
+  });
+
+  it('includes card padding in hit testing and restores plain bounds when disabled', () => {
+    const layout = getTextLayout(card);
+    expect(objectBounds(card)).toEqual({
+      x: 88,
+      y: 108,
+      width: 124,
+      height: layout.rect.height + 24,
+    });
+    expect(hitTestObject(card, { x: 90, y: 120 }, 0)).toBe(true);
+    expect(hitTestObject(text, { x: 90, y: 120 }, 0)).toBe(false);
+    const disabled = { ...card, background: { ...card.background!, enabled: false } };
+    expect(objectBounds(disabled)).toEqual(objectBounds(text));
+    expect(getTextCardRect(disabled)).toBeNull();
+    expect(getTextCardRect(text)).toBeNull();
+  });
+
+  it('grows the card height with text and covers indivisible glyphs wider than the wrapping box', () => {
+    const family = '👨‍👩‍👧‍👦';
+    const narrow = { ...card, width: 40, text: family };
+    const layout = getTextLayout(narrow);
+    expect(objectBounds(narrow).width).toBe(layout.inkWidth + 24);
+    const longer = { ...card, text: 'More wrapped text '.repeat(10) };
+    expect(objectBounds(longer).height).toBe(getTextLayout(longer).rect.height + 24);
+    expect(objectBounds(longer).height).toBeGreaterThan(objectBounds(card).height);
+    expect(card.width).toBe(100);
+    expect(card.position).toEqual(text.position);
+  });
+
+  it('reuses text metrics when the card is toggled, recolored or translated', () => {
+    const original = { ...text, text: 'Cache-independent background card' };
+    const metrics = getTextLayout(original);
+    const measure = vi.spyOn(measurements, 'measureText');
+    try {
+      const enabled = { ...original, background: card.background };
+      expect(getTextLayout(enabled)).toEqual(metrics);
+      const recolored: TextObject = {
+        ...enabled,
+        background: { enabled: true, color: '#ffffff' },
+      };
+      getTextLayout(recolored);
+      getTextLayout({ ...enabled, position: { x: -500, y: 600 } });
+      expect(measure).not.toHaveBeenCalled();
+    } finally {
+      measure.mockRestore();
+    }
+  });
+
+  it('puts width handles on the card edges and resizes without moving the opposite edge', () => {
+    const y = text.position.y + getTextLayout(card).rect.height / 2;
+    expect(textHandles(card)).toEqual({ w: { x: 88, y }, e: { x: 212, y } });
+    const wider = resizeTextWidth(card, 'e', { x: 312, y });
+    expect(wider).toMatchObject({ position: text.position, width: 200, fontSize: 24 });
+    expect(objectBounds(wider).x).toBe(88);
+    expect(objectBounds(wider).x + objectBounds(wider).width).toBe(312);
+    const left = resizeTextWidth(card, 'w', { x: 48, y });
+    expect(left).toMatchObject({ position: { x: 60, y: 120 }, width: 140, fontSize: 24 });
+    expect(objectBounds(left).x).toBe(48);
+    expect(objectBounds(left).x + objectBounds(left).width).toBe(212);
+    expect(hitTestTextHandle(card, { x: 88, y }, 5)).toBe('w');
+  });
+
+  it('keeps the opposite card edge fixed at minimum width, even for overflowing graphemes', () => {
+    const narrowed = resizeTextWidth(card, 'w', { x: 500, y: 0 });
+    expect(narrowed.width).toBe(MIN_TEXT_WIDTH);
+    expect(narrowed.position.x).toBe(160);
+    expect(objectBounds(narrowed).x + objectBounds(narrowed).width).toBe(212);
+    const emoji = { ...card, width: 40, text: '👨‍👩‍👧‍👦' };
+    const before = objectBounds(emoji);
+    const after = resizeTextWidth(emoji, 'w', { x: 500, y: 0 });
+    expect(objectBounds(after).x + objectBounds(after).width).toBe(before.x + before.width);
+    expect(resizeTextWidth(emoji, 'e', textHandles(emoji).e)).toBe(emoji);
+    expect(resizeTextWidth(emoji, 'w', textHandles(emoji).w)).toBe(emoji);
   });
 });

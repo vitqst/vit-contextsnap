@@ -4,7 +4,7 @@ import { getArrowLabelLayout } from '../core/arrow-label';
 import { arrowHeadPoints, objectBounds } from '../core/geometry';
 import { arrowControl } from '../core/arrows';
 import { LABEL_FONT_FAMILY } from '../core/label-layout';
-import { getTextLayout } from '../core/text-layout';
+import { getTextCardRect, getTextLayout, TEXT_CARD_RADIUS } from '../core/text-layout';
 import { penOutline } from '../core/brush';
 import { drawShapeNote, drawSticky } from './render-notes';
 import { objectsInPaintOrder } from '../core/layers';
@@ -583,16 +583,29 @@ function drawPen(ctx: CanvasRenderingContext2D, object: PenObject): void {
 
 function drawText(ctx: CanvasRenderingContext2D, object: TextObject): void {
   const layout = getTextLayout(object);
+  const card = getTextCardRect(object, layout);
+  if (card) {
+    // The inherited shadow is already privacy-checked by drawObject. Cast it
+    // from solid card geometry only, never from the text's private glyph shapes.
+    ctx.fillStyle = object.background?.color || '#ffffff';
+    ctx.beginPath();
+    ctx.roundRect(card.x, card.y, card.width, card.height, TEXT_CARD_RADIUS);
+    ctx.fill();
+    clearShadow(ctx);
+    ctx.fillStyle = object.style.color;
+  }
   ctx.font = `500 ${object.fontSize}px ${LABEL_FONT_FAMILY}`;
   ctx.fontKerning = 'normal';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   layout.lines.forEach((line, index) => {
     const y = object.position.y + (index + 0.5) * layout.lineHeight;
-    // A narrow white halo keeps notes readable over both light and dark screenshots.
-    ctx.strokeStyle = object.style.color.toLowerCase() === '#ffffff' ? '#282832' : '#ffffff';
-    ctx.lineWidth = Math.max(3, object.fontSize / 7);
-    ctx.strokeText(line, object.position.x, y);
+    if (!card) {
+      // Preserve the legacy halo when there is no solid card behind the text.
+      ctx.strokeStyle = object.style.color.toLowerCase() === '#ffffff' ? '#282832' : '#ffffff';
+      ctx.lineWidth = Math.max(3, object.fontSize / 7);
+      ctx.strokeText(line, object.position.x, y);
+    }
     ctx.fillText(line, object.position.x, y);
   });
 }

@@ -9,6 +9,7 @@ import {
   type ObjectStyle,
   type Point,
   type Tool,
+  type TextObject,
   type BrushSettings,
 } from '../core/model';
 import { moveObject } from '../core/geometry';
@@ -63,6 +64,22 @@ function isTextTarget(target: EventTarget | null): boolean {
     target instanceof HTMLElement &&
     (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable)
   );
+}
+
+function acceptsTextSelection(target: EventTarget | null): boolean {
+  if (!isTextTarget(target)) return false;
+  if (!(target instanceof HTMLInputElement)) return true;
+  return ![
+    'range',
+    'checkbox',
+    'radio',
+    'color',
+    'file',
+    'button',
+    'submit',
+    'reset',
+    'image',
+  ].includes(target.type);
 }
 
 export function Editor({ platform }: { platform: EditorPlatform }) {
@@ -465,6 +482,17 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
     else state.commit(document);
   }
 
+  function changeTextBackground(change: Partial<NonNullable<TextObject['background']>>) {
+    // Clicking the control can commit a native IME draft on blur. Merge only
+    // background fields into the current object so that final text is retained.
+    const object = state.getCurrent().objects.find((item) => item.id === selected?.id);
+    if (object?.type !== 'text') return;
+    updateObject({
+      ...object,
+      background: { enabled: false, color: '#ffffff', ...object.background, ...change },
+    });
+  }
+
   function changeStyle(change: Partial<ObjectStyle>) {
     if (selected?.type === 'sticky' || (!selected && tool === 'sticky')) {
       setStickyStyle((current) => ({ ...current, ...change }));
@@ -681,10 +709,35 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
-      if (editingLocked || replacementPending.current) return;
-      if (isTextTarget(event.target)) return;
       const modifier = event.ctrlKey || event.metaKey;
       const key = event.key.toLowerCase();
+      const textSelection = acceptsTextSelection(event.target);
+      if (modifier && !event.altKey && key === 'a' && !textSelection) {
+        event.preventDefault();
+        window.getSelection()?.removeAllRanges();
+        if (editingLocked || replacementPending.current) return;
+        // Return keyboard focus to the canvas so Delete acts on this selection,
+        // even when selecting one object leaves its properties panel mounted.
+        if (event.target instanceof HTMLInputElement) event.target.blur();
+        setCancelToken((n) => n + 1);
+        state.preview(null);
+        state.selectAll();
+        setTool('select');
+        return;
+      }
+      if (event.key === 'Escape' && !textSelection) {
+        event.preventDefault();
+        // Clear a browser selection left over from the old Ctrl+A behavior too.
+        window.getSelection()?.removeAllRanges();
+        if (editingLocked || replacementPending.current) return;
+        setCancelToken((n) => n + 1);
+        state.select(null);
+        setTool('select');
+        cancelText();
+        return;
+      }
+      if (editingLocked || replacementPending.current) return;
+      if (isTextTarget(event.target)) return;
       if (event.code === 'Space' && !modifier) {
         event.preventDefault();
         setSpaceHeld(true);
@@ -731,13 +784,6 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
       if (modifier && key === 'd') {
         event.preventDefault();
         duplicateSelected();
-        return;
-      }
-      if (event.key === 'Escape') {
-        setCancelToken((n) => n + 1);
-        state.select(null);
-        setTool('select');
-        cancelText();
         return;
       }
       if (event.key === 'Delete' || event.key === 'Backspace') {
@@ -968,6 +1014,7 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
                 onFontSize={(fontSize) => changeFontSize(fontSize)}
                 onUpdate={updateObject}
                 onPreviewFontSize={(fontSize) => changeFontSize(fontSize, true)}
+                onTextBackground={changeTextBackground}
                 onAutoFontSize={() => {
                   const object = state
                     .getCurrent()

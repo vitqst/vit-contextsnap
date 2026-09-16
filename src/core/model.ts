@@ -82,6 +82,8 @@ export interface TextObject extends ObjectBase {
   fontSize: number;
   /** Fixed wrapping width in source pixels. Omitted legacy objects keep automatic width. */
   width?: number;
+  /** Optional padded card; omitted or disabled backgrounds preserve plain text. */
+  background?: { enabled: boolean; color: string };
 }
 
 export interface StepObject extends ObjectBase {

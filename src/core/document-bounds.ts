@@ -40,7 +40,9 @@ export function objectVisualBounds(object: DrawingObject): Rect {
     padding = 2 + Math.max(0, 2 - object.style.width) / 2;
   } else if (object.type === 'step') {
     padding = Math.max(0, 3 - object.style.width) / 2;
-  } else if (object.type === 'text') {
+  } else if (object.type === 'text' && !object.background?.enabled) {
+    // Plain text has a stroked halo. Enabled cards use fill-only glyphs inside
+    // their already padded bounds; only the card itself casts a shadow.
     padding = Math.max(3, object.fontSize / 7) / 2;
   }
   const extent = shadowBounds(

@@ -48,7 +48,7 @@ export function FontSizeControl({
     const active = gesture.current;
     if (!active || active.cancelled) return;
     // Keep this gesture cancelled until release: native range input can still
-    // emit changes when the pointer moves after Escape.
+    // emit changes when the pointer moves after cancellation.
     active.cancelled = true;
     if (active.changed) callbacks.current.onCancelPreview?.();
   };
@@ -116,11 +116,22 @@ export function FontSizeControl({
         }}
         onPointerUp={finish}
         onPointerCancel={cancel}
-        onBlur={finish}
+        onBlur={() => {
+          if (!gesture.current?.cancelled) finish();
+        }}
         onKeyDown={(event) => {
           if (event.key === 'Escape' && gesture.current) {
             event.preventDefault();
             event.stopPropagation();
+            cancel();
+          } else if (
+            (event.ctrlKey || event.metaKey) &&
+            !event.altKey &&
+            event.key.toLowerCase() === 'a' &&
+            gesture.current
+          ) {
+            // Let the editor select objects, after cancelling this live preview.
+            // Its focus handoff must not commit the interrupted font gesture.
             cancel();
           } else if (
             gesture.current?.cancelled &&
