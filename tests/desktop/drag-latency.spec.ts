@@ -65,7 +65,31 @@ test('image drag paints the latest pointer position without a React-to-RAF frame
   );
   await page.mouse.move(start.x, start.y);
   await page.mouse.down();
-  await page.mouse.move(start.x + 160 * scale, start.y + 80 * scale, { steps: 24 });
+  let observedPaints = 0;
+  for (let step = 1; step <= 24; step++) {
+    await page.mouse.move(start.x + (160 * scale * step) / 24, start.y + (80 * scale * step) / 24);
+    if (step % 4 !== 0) continue;
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            (
+              window as unknown as {
+                dragLatencyProbe: { state: { paints: number } };
+              }
+            ).dragLatencyProbe.state.paints,
+        ),
+      )
+      .toBeGreaterThan(observedPaints);
+    observedPaints = await page.evaluate(
+      () =>
+        (
+          window as unknown as {
+            dragLatencyProbe: { state: { paints: number } };
+          }
+        ).dragLatencyProbe.state.paints,
+    );
+  }
   await page.mouse.up();
   const result = await page.evaluate(async () => {
     await new Promise<void>((resolve) =>
