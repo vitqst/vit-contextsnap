@@ -104,10 +104,21 @@ test('outward dragging never resizes or blanks the visible canvas', async ({ des
   await expect
     .poll(async () => Number(await page.getByTestId('drawing-canvas').getAttribute('data-world-y')))
     .toBeLessThan(0);
-  const result = await page.evaluate(async () => {
-    await new Promise<void>((resolve) =>
-      requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-    );
+  // A loaded WebKit runner may coalesce the synthetic pointer moves into only
+  // a few paints. Wait for the observation window the test actually requires.
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (
+            window as unknown as {
+              expansionProbe: { state: { frames: number } };
+            }
+          ).expansionProbe.state.frames,
+      ),
+    )
+    .toBeGreaterThan(5);
+  const result = await page.evaluate(() => {
     const probe = (
       window as unknown as {
         expansionProbe: {

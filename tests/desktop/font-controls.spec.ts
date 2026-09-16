@@ -19,9 +19,13 @@ async function addText(page: Page, tool: 'text' | 'sticky', text: string): Promi
     .click();
   await drag(page, { x: 300, y: 150 }, tool === 'text' ? { x: 300, y: 150 } : { x: 520, y: 320 });
   const input = page.getByRole('textbox', { name: 'Edit label', exact: true });
+  const empty = await bitmap(page);
   await input.fill(text);
   await input.press('Control+Enter');
   await expect(input).toHaveCount(0);
+  // React has committed the object when the input closes, but WebKit may not
+  // have run the canvas paint scheduled for the next animation frame yet.
+  await expect.poll(() => bitmap(page)).not.toBe(empty);
 }
 
 for (const kind of ['arrow', 'rectangle'] as const) {
@@ -34,9 +38,12 @@ for (const kind of ['arrow', 'rectangle'] as const) {
       await page.getByRole('button', { name: 'Rectangle (R)', exact: true }).click();
       await drag(page, { x: 300, y: 180 }, { x: 560, y: 330 });
     }
-    await page
-      .getByRole('textbox', { name: kind === 'arrow' ? 'Arrow label' : 'Shape note' })
-      .fill('Readable label');
+    const labelInput = page.getByRole('textbox', {
+      name: kind === 'arrow' ? 'Arrow label' : 'Shape note',
+    });
+    const unlabeled = await bitmap(page);
+    await labelInput.fill('Readable label');
+    await expect.poll(() => bitmap(page)).not.toBe(unlabeled);
     const panel = page.getByRole('complementary', { name: 'Drawing properties' });
     const slider = panel.getByRole('slider', { name: 'Label size', exact: true });
     await expect(slider).toBeVisible();

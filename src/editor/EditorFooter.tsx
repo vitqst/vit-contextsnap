@@ -1,3 +1,4 @@
+import { LockKeyhole } from 'lucide-react';
 import type { Rect } from '../core/model';
 
 interface Props {
@@ -10,8 +11,8 @@ export function EditorFooter({ objectCount, crop, onResetCrop }: Props) {
   return (
     <footer className="editor-footer">
       <span>
-        <span className="local-dot" />
-        Local by design. Yours to share.
+        <LockKeyhole size={11} />
+        <span>Screenshot</span>
       </span>
       <span data-testid="object-count">
         {objectCount} {objectCount === 1 ? 'object' : 'objects'}
@@ -25,7 +26,7 @@ export function EditorFooter({ objectCount, crop, onResetCrop }: Props) {
           </>
         )}
       </span>
-      <span>Made for a clearer point.</span>
+      <span>Local by design. Yours to share.</span>
     </footer>
   );
 }

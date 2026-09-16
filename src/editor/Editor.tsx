@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Check, ImagePlus, LockKeyhole, Redo2, Undo2, X } from 'lucide-react';
+import { Check, ImagePlus, Redo2, Undo2, X } from 'lucide-react';
 import {
   DEFAULT_STYLE,
   newObjectBase,
@@ -1118,22 +1118,6 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
                     height: contentBounds.height * scale,
                   }}
                 >
-                  <div
-                    className="image-caption"
-                    style={{
-                      left: -contentBounds.x * scale,
-                      top: -contentBounds.y * scale - 26,
-                      width: image.naturalWidth * scale,
-                    }}
-                  >
-                    <span>
-                      <LockKeyhole size={11} />
-                      SCREENSHOT
-                    </span>
-                    <span>
-                      {contentBounds.width} × {contentBounds.height}
-                    </span>
-                  </div>
                   {editing && editingLayout && (
                     <textarea
                       className={`inline-text-editor${editingNoteLayout ? ' inline-shape-editor' : ''}`}

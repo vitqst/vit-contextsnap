@@ -1,5 +1,28 @@
 import { test, expect, capture } from './bridge';
 
+test('empty desktop actions have visible vertical separation', async ({ desktop: page }) => {
+  await page.setViewportSize({ width: 590, height: 692 });
+  const empty = page.locator('.empty-workspace');
+  const captureButton = empty.getByRole('button', { name: 'Capture screenshot', exact: true });
+  const openButton = empty.getByRole('button', { name: 'Open image', exact: true });
+  const captureBox = (await captureButton.boundingBox())!;
+  const openBox = (await openButton.boundingBox())!;
+
+  expect(openBox.y - (captureBox.y + captureBox.height)).toBeGreaterThanOrEqual(10);
+});
+
+test('screenshot status lives in the footer without canvas dimensions', async ({
+  desktop: page,
+}) => {
+  await page.setViewportSize({ width: 589, height: 692 });
+  await capture(page);
+  const footer = page.locator('.editor-footer');
+
+  await expect(page.locator('.image-caption')).toHaveCount(0);
+  await expect(footer.getByText('Screenshot', { exact: true })).toBeVisible();
+  await expect(footer).not.toContainText('960 × 640');
+});
+
 test('desktop has no scrollbars and the camera covers the complete workspace', async ({
   desktop: page,
 }) => {

@@ -184,24 +184,6 @@
 .pan-ready:active canvas {
   cursor: grabbing !important;
 }
-.image-caption {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 20px;
-  position: absolute;
-  top: -26px;
-  width: 100%;
-  color: #9a96a7;
-  font-size: 10px;
-  letter-spacing: 0.7px;
-}
-.image-caption span:first-child {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 9px;
-}
 .screenshot-background {
   position: absolute;
   pointer-events: none;
@@ -460,12 +442,6 @@
   align-items: center;
   gap: 7px;
 }
-.local-dot {
-  width: 5px;
-  height: 5px;
-  background: #7faf90;
-  border-radius: 50%;
-}
 .reset-crop {
   border: none;
   background: transparent;
@@ -620,6 +596,9 @@
 .open-image-button {
   min-width: 150px;
   height: 43px;
+}
+.open-image-button + .open-image-button {
+  margin-top: 10px;
 }
 .empty-hint {
   font-size: 10px;
