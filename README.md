@@ -6,15 +6,15 @@ All processing and image storage stay on your device.
 
 For screenshots outside the browser, see the separate [Linux and macOS desktop app README](desktop/README.md).
 
-[Download for Chrome — v0.2.0](https://github.com/vitqst/vit-contextsnap/releases/download/v0.2.0/contextsnap-0.2.0-chrome.zip)
-· [Release notes](https://github.com/vitqst/vit-contextsnap/releases/tag/v0.2.0)
+[Download for Chrome — v0.3.0](https://github.com/vitqst/vit-contextsnap/releases/download/v0.3.0/contextsnap-0.3.0-chrome.zip)
+· [Release notes](docs/releases/0.3.0.md)
 · [MIT license](LICENSE)
 
 ![ContextSnap editor with a labeled curved arrow and numbered steps on a fictional checkout page](docs/images/editor-overview.png)
 
 ## Install in Chrome — no build needed
 
-1. Download [contextsnap-0.2.0-chrome.zip](https://github.com/vitqst/vit-contextsnap/releases/download/v0.2.0/contextsnap-0.2.0-chrome.zip).
+1. Download [contextsnap-0.3.0-chrome.zip](https://github.com/vitqst/vit-contextsnap/releases/download/v0.3.0/contextsnap-0.3.0-chrome.zip).
    Use this extension ZIP, not GitHub's **Source code** archive.
 2. **Unzip** it into a folder you will keep on your computer.
 3. Open `chrome://extensions` and enable **Developer mode**.
@@ -24,7 +24,7 @@ For screenshots outside the browser, see the separate [Linux and macOS desktop a
 
 Requires Chrome 120 or later. No Node.js, npm, server, API key, or account is needed.
 This is a manually installed Chrome MV3 extension, not a Chrome Web Store listing.
-Other Chromium browsers are not yet independently tested. A [SHA-256 checksum](https://github.com/vitqst/vit-contextsnap/releases/download/v0.2.0/SHA256SUMS)
+Other Chromium browsers are not yet independently tested. A [SHA-256 checksum](https://github.com/vitqst/vit-contextsnap/releases/download/v0.3.0/SHA256SUMS)
 is included with the release to verify the ZIP.
 
 ## See the released tools in action

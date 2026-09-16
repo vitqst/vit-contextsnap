@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+No changes yet.
+
+## 0.3.0 — Desktop editor and drawing refinements
+
 - Restore the existing editor's foreground focus after Linux/X11 capture using main-thread
   GTK presentation and a fresh X11 timestamp, including hidden and minimized windows.
 - Add configurable Soft/Hard shadows to all drawing elements, text, labels, images, and effects.
