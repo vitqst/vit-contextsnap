@@ -150,4 +150,45 @@ describe('content-sized document canvas', () => {
     const bounds = documentBounds(960, 640, [text]);
     expect(bounds.x + bounds.width).toBeGreaterThanOrEqual(950 + measureText('WWWW', 28) + 2);
   });
+
+  it('includes soft and hard shadows for every kind of object, without changing disabled extents', () => {
+    const rect = { x: 200, y: 200, width: 100, height: 100 };
+    const objects: DrawingObject[] = [
+      { ...base, type: 'image', assetId: 'image', rect },
+      { ...base, type: 'rectangle', rect },
+      { ...base, type: 'redact', rect },
+      { ...base, type: 'blur', rect, strength: 12 },
+      { ...base, type: 'sticky', rect, text: '', fontSize: 24 },
+      { ...base, type: 'text', position: { x: 200, y: 200 }, text: 'Text', fontSize: 24 },
+      {
+        ...base,
+        type: 'pen',
+        points: [
+          { x: 200, y: 200, pressure: 0.5 },
+          { x: 300, y: 300, pressure: 0.5 },
+        ],
+      },
+      { ...base, type: 'step', center: { x: 250, y: 250 }, radius: 50, number: 1 },
+      { ...base, type: 'magnifier', center: { x: 250, y: 250 }, radius: 50, zoom: 2 },
+      arrow,
+    ];
+    for (const object of objects) {
+      const off = documentBounds(1, 1, [object]);
+      const soft = documentBounds(1, 1, [
+        { ...object, style: { ...object.style, shadow: true, shadowKind: 'soft' } },
+      ]);
+      const hard = documentBounds(1, 1, [
+        { ...object, style: { ...object.style, shadow: true, shadowKind: 'hard' } },
+      ]);
+      expect(soft.x + soft.width, `${object.type}: soft right extent`).toBeGreaterThan(
+        off.x + off.width,
+      );
+      expect(hard.x + hard.width, `${object.type}: hard right extent`).toBeGreaterThan(
+        off.x + off.width,
+      );
+      expect(soft.y + soft.height, `${object.type}: soft bottom extent`).toBeGreaterThan(
+        hard.y + hard.height,
+      );
+    }
+  });
 });

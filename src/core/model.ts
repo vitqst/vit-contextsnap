@@ -25,8 +25,9 @@ export interface ObjectStyle {
   color: string;
   width: number;
   sketch: boolean;
-  /** Only arrow strokes and sticky cards render shadows. */
+  /** Every document object supports shadows; omitted legacy values default to soft. */
   shadow?: boolean;
+  shadowKind?: 'soft' | 'hard';
 }
 
 interface ObjectBase {

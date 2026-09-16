@@ -8,7 +8,6 @@ use std::{
     io::Write,
     path::Path,
     sync::atomic::{AtomicBool, Ordering},
-    time::Duration,
 };
 use tauri::{AppHandle, Manager, State, WebviewWindow};
 use tauri_plugin_clipboard_manager::ClipboardExt;
@@ -58,12 +57,16 @@ async fn capture_screenshot(
         active: &state.0,
         window,
     };
-    guard
-        .window
-        .hide()
-        .map_err(|error| format!("Could not hide the editor: {error}"))?;
-    // Give the compositor time to remove the editor before opening the system picker.
-    tokio::time::sleep(Duration::from_millis(250)).await;
+    let compositor_delay = lifecycle::prepare_capture(
+        &guard.window.state::<lifecycle::TrayState>(),
+        || guard.window.is_visible(),
+        || guard.window.hide(),
+    )
+    .map_err(|error| format!("Could not hide the editor: {error}"))?;
+    // Only wait for the compositor when this capture had to hide the editor.
+    if !compositor_delay.is_zero() {
+        tokio::time::sleep(compositor_delay).await;
+    }
     capture::screenshot().await.map(tauri::ipc::Response::new)
 }
 

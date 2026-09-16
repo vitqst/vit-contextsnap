@@ -15,6 +15,7 @@ import { moveObject } from '../core/geometry';
 import { documentBounds } from '../core/document-bounds';
 import { placeImage } from '../core/image-geometry';
 import { canReorderObject, reorderObject } from '../core/layers';
+import { deleteSelection } from '../core/selection';
 import { getArrowLabelLayout } from '../core/arrow-label';
 import { arrowMode as getArrowMode, withArrowMode } from '../core/arrows';
 import { DEFAULT_BRUSH, normalizeBrush } from '../core/brush';
@@ -30,6 +31,7 @@ import { EditorFooter } from './EditorFooter';
 import { EditorHeader } from './EditorHeader';
 import { EmptyState } from './EmptyState';
 import { Properties } from './Properties';
+import { MultiSelectionProperties } from './MultiSelectionProperties';
 import { Toolbar } from './Toolbar';
 import { ZoomControls } from './ZoomControls';
 import { useDocument } from './useDocument';
@@ -37,7 +39,7 @@ import { ImageAssetStore } from './image-assets';
 import { fitViewport, panViewport, zoomViewport, type Viewport } from './viewport';
 
 const HINTS: Record<Tool, string> = {
-  select: 'Click to select · Drag to move · Double-click to add a label',
+  select: 'Click to select · Shift-click to select multiple · Drag to move · Double-click to label',
   arrow: 'Drag to point something out · Hold Shift for a straight arrow',
   pen: 'Draw freely · Pen pressure supported',
   rectangle: 'Drag to frame a detail · Hold Shift for a square',
@@ -241,7 +243,8 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
     setCancelToken((n) => n + 1);
     state.preview(null);
     try {
-      if (unsavedWork.current && !(await platform.confirmReplace())) return;
+      // Explicit screenshot requests are a fast replacement workflow. Keep the
+      // existing document until capture and decoding succeed, but do not prompt.
       const record = await platform.captureScreenshot();
       if (record) await openCapture(record);
     } catch (cause) {
@@ -448,11 +451,9 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
   }
 
   function deleteSelected() {
-    if (!state.selectedId) return;
-    state.commit({
-      ...state.committed,
-      objects: state.committed.objects.filter((item) => item.id !== state.selectedId),
-    });
+    if (!state.selectedIds.length) return;
+    setCancelToken((n) => n + 1);
+    state.commit(deleteSelection(state.getCurrent(), state.selectedIds));
     state.select(null);
   }
 
@@ -882,39 +883,46 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
                 }}
               />
             </div>
-            <Properties
-              sceneBounds={state.doc.crop ?? contentBounds}
-              tool={tool}
-              selected={selected}
-              style={selected?.style ?? (tool === 'sticky' ? stickyStyle : style)}
-              onStyle={changeStyle}
-              onLabel={(label) => {
-                if (selected) updateObject(withObjectText(selected, label));
-              }}
-              onDelete={deleteSelected}
-              onDuplicate={duplicateSelected}
-              onFontSize={(fontSize) => {
-                if (selected?.type === 'text') updateObject({ ...selected, fontSize });
-              }}
-              onUpdate={updateObject}
-              arrowMode={selected?.type === 'arrow' ? getArrowMode(selected) : arrowMode}
-              onArrowMode={(mode) => {
-                setArrowMode(mode);
-                if (selected?.type === 'arrow') updateObject(withArrowMode(selected, mode));
-              }}
-              brush={selected?.type === 'pen' ? normalizeBrush(selected.brush) : brush}
-              onBrush={(value) => {
-                setBrush(value);
-                if (selected?.type === 'pen') updateObject({ ...selected, brush: value });
-              }}
-              canBringForward={
-                !!selected && canReorderObject(state.doc.objects, selected.id, 'forward')
-              }
-              canSendBackward={
-                !!selected && canReorderObject(state.doc.objects, selected.id, 'backward')
-              }
-              onReorder={reorderSelected}
-            />
+            {state.selectedIds.length > 1 ? (
+              <MultiSelectionProperties
+                count={state.selectedIds.length}
+                onDelete={deleteSelected}
+              />
+            ) : (
+              <Properties
+                sceneBounds={state.doc.crop ?? contentBounds}
+                tool={tool}
+                selected={selected}
+                style={selected?.style ?? (tool === 'sticky' ? stickyStyle : style)}
+                onStyle={changeStyle}
+                onLabel={(label) => {
+                  if (selected) updateObject(withObjectText(selected, label));
+                }}
+                onDelete={deleteSelected}
+                onDuplicate={duplicateSelected}
+                onFontSize={(fontSize) => {
+                  if (selected?.type === 'text') updateObject({ ...selected, fontSize });
+                }}
+                onUpdate={updateObject}
+                arrowMode={selected?.type === 'arrow' ? getArrowMode(selected) : arrowMode}
+                onArrowMode={(mode) => {
+                  setArrowMode(mode);
+                  if (selected?.type === 'arrow') updateObject(withArrowMode(selected, mode));
+                }}
+                brush={selected?.type === 'pen' ? normalizeBrush(selected.brush) : brush}
+                onBrush={(value) => {
+                  setBrush(value);
+                  if (selected?.type === 'pen') updateObject({ ...selected, brush: value });
+                }}
+                canBringForward={
+                  !!selected && canReorderObject(state.doc.objects, selected.id, 'forward')
+                }
+                canSendBackward={
+                  !!selected && canReorderObject(state.doc.objects, selected.id, 'backward')
+                }
+                onReorder={reorderSelected}
+              />
+            )}
             <div
               className={`stage-scroll${spaceHeld ? ' pan-ready' : ''}`}
               ref={stage}
@@ -983,6 +991,7 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
                   brush={brush}
                   scale={scale}
                   selectedId={state.selectedId}
+                  selectedIds={state.selectedIds}
                   select={state.select}
                   preview={state.preview}
                   commit={state.commit}

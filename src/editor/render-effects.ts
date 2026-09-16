@@ -10,6 +10,7 @@ import type { ImageAssets } from './image-assets';
 import { blurPixels } from './blur';
 import { documentBounds } from '../core/document-bounds';
 import { checkImageSize } from '../core/image-size';
+import { applyObjectShadow, clearShadow, drawMaskShadow } from './render-shadow';
 
 interface ImageSize {
   width: number;
@@ -144,9 +145,19 @@ export function getEffectSource(
     bounds,
     expandedBackground,
     options.previewEffects === true,
-    images.map((object) => [object.assetId, object.rect]),
-    redactions.map((object) => object.rect),
-    blurs.map((object) => [object.rect, blurStrength(object.strength)]),
+    images.map((object) => [
+      object.assetId,
+      object.rect,
+      object.style.shadow,
+      object.style.shadowKind,
+    ]),
+    redactions.map((object) => [object.rect, object.style.shadow, object.style.shadowKind]),
+    blurs.map((object) => [
+      object.rect,
+      blurStrength(object.strength),
+      object.style.shadow,
+      object.style.shadowKind,
+    ]),
   ]);
   const previous = sanitizedSources.get(image);
   if (previous?.signature === signature) return previous.canvas;
@@ -171,7 +182,11 @@ export function getEffectSource(
   for (const object of images) {
     const asset = assets!.get(object.assetId)!;
     const { x, y, width, height } = object.rect;
+    ctx.save();
+    clearShadow(ctx);
+    drawMaskShadow(ctx, object.rect, object.style);
     ctx.drawImage(asset.source, x, y, width, height);
+    ctx.restore();
   }
   applyPrivacyEffects(ctx, canvas, objects, bounds, options);
   sanitizedSources.set(image, { canvas, signature });
@@ -185,6 +200,7 @@ export function applyPrivacyEffects(
   objects: readonly DrawingObject[],
   bounds: Rect,
   options: SceneRenderOptions = {},
+  decorations = true,
 ): void {
   const redactions = objects.filter(
     (object): object is RectangleObject => object.type === 'redact',
@@ -206,6 +222,23 @@ export function applyPrivacyEffects(
       options,
     );
   ctx.restore();
+  // Blur underlays are sanitation-only. Decorative shadows belong to the final
+  // composite, never a twice-painted or pre-filtered copy in that cache.
+  if (decorations)
+    for (const object of [...blurs, ...redactions]) {
+      const x = Math.floor(object.rect.x);
+      const y = Math.floor(object.rect.y);
+      drawMaskShadow(
+        ctx,
+        {
+          x,
+          y,
+          width: Math.ceil(object.rect.x + object.rect.width) - x,
+          height: Math.ceil(object.rect.y + object.rect.height) - y,
+        },
+        object.style,
+      );
+    }
   // Filtering a black mask must not soften its original covered area.
   for (const object of redactions) drawRedaction(ctx, object.rect);
 }
@@ -337,12 +370,13 @@ export function drawMagnifier(
   const sample = magnifierSourceRect(center, radius, lens.zoom);
   ctx.save();
   ctx.fillStyle = '#ffffff';
-  ctx.shadowColor = 'transparent';
+  applyObjectShadow(ctx, lens.style, lens.type);
   ctx.beginPath();
   ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
   ctx.save();
+  clearShadow(ctx);
   ctx.beginPath();
   ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
   ctx.clip();

@@ -1,6 +1,7 @@
 import type { DrawingObject, Rect } from './model';
 import { objectBounds } from './geometry';
 import { measureText } from './label-layout';
+import { objectShadow, shadowBounds } from './shadows';
 
 // Gestures and history replace edited objects rather than mutating them. Reuse
 // unchanged extents so dragging one image never remeasures every label/pen path.
@@ -17,7 +18,7 @@ export function documentBounds(
   let right = width;
   let bottom = height;
   for (const object of objects) {
-    const rect = visualExtent(object);
+    const rect = objectVisualBounds(object);
     left = Math.min(left, rect.x);
     top = Math.min(top, rect.y);
     right = Math.max(right, rect.x + rect.width);
@@ -28,20 +29,14 @@ export function documentBounds(
   return { x: left, y: top, width: Math.ceil(right) - left, height: Math.ceil(bottom) - top };
 }
 
-function visualExtent(object: DrawingObject): Rect {
+/** Cached uncropped ink extents, including measured text and decorative overflow. */
+export function objectVisualBounds(object: DrawingObject): Rect {
   const cached = visualExtents.get(object);
   if (cached) return cached;
   // Omit scene bounds here: labels are free content until the user explicitly crops.
   const rect = objectBounds(object);
   let padding = 0;
-  let shadowOffset = 0;
-  if (object.type === 'arrow' && object.style.shadow !== false) {
-    padding = 10;
-    shadowOffset = 2;
-  } else if (object.type === 'sticky' && object.style.shadow !== false) {
-    padding = 28;
-    shadowOffset = 5;
-  } else if (object.type === 'magnifier') {
+  if (object.type === 'magnifier') {
     // objectBounds contains the colored ring, but not the outer white ring.
     padding = 2 + Math.max(0, 2 - object.style.width) / 2;
   } else if (object.type === 'step') {
@@ -53,12 +48,15 @@ function visualExtent(object: DrawingObject): Rect {
       ...object.text.split('\n').map((line) => measureText(line, object.fontSize)),
     );
   }
-  const extent = {
-    x: rect.x - padding,
-    y: rect.y - padding,
-    width: rect.width + padding * 2,
-    height: rect.height + padding * 2 + shadowOffset,
-  };
+  const extent = shadowBounds(
+    {
+      x: rect.x - padding,
+      y: rect.y - padding,
+      width: rect.width + padding * 2,
+      height: rect.height + padding * 2,
+    },
+    objectShadow(object.style, object.type),
+  );
   visualExtents.set(object, extent);
   return extent;
 }

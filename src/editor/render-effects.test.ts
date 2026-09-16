@@ -51,14 +51,14 @@ describe('blur renderer compatibility', () => {
       rect: { x: 0, y: 0, width: 7, height: 7 },
       strength: 4,
       seed: 1,
-      style: { color: '#000000', width: 1, sketch: false },
+      style: { color: '#000000', width: 1, sketch: false, shadow: false },
     },
     {
       id: 'redaction',
       type: 'redact',
       rect: { x: 1.5, y: 1.5, width: 2, height: 2 },
       seed: 2,
-      style: { color: '#000000', width: 1, sketch: false },
+      style: { color: '#000000', width: 1, sketch: false, shadow: false },
     },
   ];
 

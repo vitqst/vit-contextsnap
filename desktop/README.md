@@ -10,7 +10,10 @@ below; the Chrome extension ZIP is not a desktop installer. Windows is not a des
 ## What it does
 
 - **Capture screenshot** opens your operating system's screenshot picker. ContextSnap hides
-  its window during capture and returns afterward, including when you cancel.
+  its window during capture and returns afterward, including when you cancel. A successful
+  capture immediately replaces the image and annotations in the same editor, without an
+  unsaved-work prompt or another window. Save or copy first if you want to keep the previous
+  screenshot; canceling or failing a capture preserves the existing work.
 - Linux uses the XDG Desktop Portal on X11 and Wayland. Available screen, window, and area
   choices depend on the desktop environment and its screenshot portal backend.
   On X11, if the screenshot portal is missing, an installed `gnome-screenshot` supplies
@@ -19,6 +22,16 @@ below; the Chrome extension ZIP is not a desktop installer. Windows is not a des
   Space to select a window; press Escape to cancel.
 - Reuses arrows, editable labels, free drawing, rectangles, text, sticky notes, numbered
   steps, magnifiers, blur, solid redaction, crop, image layers, and undo/redo.
+- Every drawing element, including text, labels, and inserted images, supports a configurable
+  **Shadow**. Choose **Soft** (default), **Hard**, or turn it off in Drawing properties.
+  Shadows scale with zoom and are included in PNG export; crop and selection guides are not.
+  Inserted images use rectangular card shadows, preserving transparent interiors without
+  filtering private image silhouettes or adding expensive per-pixel shadow work during dragging.
+  Redaction takes priority: overlapping text/stroke shadows are suppressed so they cannot
+  expose the outline of covered content. Their configured shadow returns when the mask is moved.
+- With **Select (V)** active, **Shift-click** elements to add or remove them from the selection.
+  **Delete / Backspace** or **Delete selected** removes the whole selection in one undoable
+  action. Plain click selects one element; clicking empty space or Escape clears the selection.
 - **Copy image** puts a flattened PNG on the native system clipboard.
 - **Save PNG** opens a native Save As dialog. Canceling it keeps your work unsaved.
 - Open, paste, or drop PNG, JPEG, and WebP images. Dropping into an open document adds a layer.
@@ -38,7 +51,8 @@ below; the Chrome extension ZIP is not a desktop installer. Windows is not a des
   and returns to Select; completed adjustments support undo/redo.
 - **X hides the editor to the system tray/menu bar**, preserving your image, layers, and undo history.
 - The tray menu offers **Screenshot**, **Open editor**, and **Quit ContextSnap**.
-  Screenshot uses the same confirmation before replacing unexported work.
+  Screenshot captures without showing the old editor first and replaces unexported work
+  without confirmation. Opening an image file and Quit still warn before discarding work.
 - **Quit** warns about unexported work; use the tray menu or **Ctrl+Q / Cmd+Q**.
   Closing the window no longer discards work or quits the app.
 
@@ -167,7 +181,8 @@ network services in the packaged application. Capture happens only when you requ
 - Native capture temporarily creates a local screenshot file. ContextSnap removes the
   requested capture file after reading it, including when validation fails.
 - Closing to the tray preserves editable objects in memory. Quitting or reloading the
-  editor discards them. Save or copy work before quitting.
+  editor discards them. A successful new screenshot also discards the previous scene and
+  its undo history immediately. Save or copy work before quitting or taking another screenshot.
 - **macOS Dock → Quit bypasses the unsaved-work warning in this development version.**
   Use the tray's Quit action or the app's Quit menu/Cmd+Q instead, and export before
   quitting through the Dock, logging out, or shutting down.

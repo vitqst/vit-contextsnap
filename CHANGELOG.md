@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add configurable Soft/Hard shadows to all drawing elements, text, labels, images, and effects.
+  Keep opaque redactions and source-pixel shadow sizing in previews and expanded PNG exports.
+- Replace desktop screenshots immediately in the existing editor without a discard prompt;
+  skip reopening the old editor before tray capture, and keep prior work on cancellation/error.
+- Add Shift-click multi-selection with Select (V), a group delete action, and one-step undo/redo.
 - Add a Linux/macOS desktop application using Tauri and Rust, with a separate desktop README.
   Reuse the editor through host adapters for capture, clipboard, saving, settings, and close warnings.
 - Open system screenshot pickers, copy flattened PNGs to the native clipboard, and save with

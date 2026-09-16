@@ -155,7 +155,7 @@ export function Properties({
           ))}
         </div>
       )}
-      {(type === 'arrow' || type === 'sticky') && (
+      <>
         <label className="shadow-option">
           <input
             type="checkbox"
@@ -164,7 +164,21 @@ export function Properties({
           />
           Shadow
         </label>
-      )}
+        <div className="style-switch" role="group" aria-label="Shadow style">
+          {(['soft', 'hard'] as const).map((kind) => (
+            <button
+              key={kind}
+              className={
+                style.shadow !== false && (style.shadowKind ?? 'soft') === kind ? 'chosen' : ''
+              }
+              aria-pressed={style.shadow !== false && (style.shadowKind ?? 'soft') === kind}
+              onClick={() => onStyle({ shadow: true, shadowKind: kind })}
+            >
+              {kind === 'soft' ? 'Soft' : 'Hard'}
+            </button>
+          ))}
+        </div>
+      </>
       {type === 'pen' && <BrushProperties value={brush} onChange={onBrush} />}
       {selected && selected.type !== 'arrow' && selected.type !== 'text' && (
         <div className="label-property">

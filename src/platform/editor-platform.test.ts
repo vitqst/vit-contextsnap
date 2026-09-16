@@ -102,10 +102,24 @@ describe('platform drawing settings', () => {
       width: 5,
       sketch: true,
       shadow: true,
+      shadowKind: 'soft',
     });
     expect(parseDrawingStyle({ ...DEFAULT_STYLE, width: Number.NaN })).toBeNull();
     expect(parseDrawingStyle({ ...DEFAULT_STYLE, width: 50 })).toBeNull();
     expect(parseDrawingStyle({ ...DEFAULT_STYLE, color: 'red' })).toBeNull();
     expect(parseDrawingStyle(null)).toBeNull();
+  });
+
+  it('preserves hard shadows and explicit legacy disabled shadows', () => {
+    expect(parseDrawingStyle({ ...DEFAULT_STYLE, shadow: true, shadowKind: 'hard' })).toMatchObject(
+      { shadow: true, shadowKind: 'hard' },
+    );
+    expect(parseDrawingStyle({ ...DEFAULT_STYLE, shadow: false })).toMatchObject({
+      shadow: false,
+      shadowKind: 'soft',
+    });
+    expect(parseDrawingStyle({ ...DEFAULT_STYLE, shadowKind: 'unknown' })).toMatchObject({
+      shadowKind: 'soft',
+    });
   });
 });

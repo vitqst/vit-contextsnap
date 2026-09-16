@@ -1,12 +1,12 @@
 import { drawLabelText } from './render-label';
 import rough from 'roughjs';
 import { getArrowLabelLayout } from '../core/arrow-label';
-import { arrowHeadPoints } from '../core/geometry';
+import { arrowHeadPoints, objectBounds } from '../core/geometry';
 import { arrowControl } from '../core/arrows';
 import { penOutline } from '../core/brush';
 import { drawShapeNote, drawSticky } from './render-notes';
 import { objectsInPaintOrder } from '../core/layers';
-import { documentBounds } from '../core/document-bounds';
+import { documentBounds, objectVisualBounds } from '../core/document-bounds';
 import { checkImageSize, MAX_IMAGE_PIXELS } from '../core/image-size';
 import type {
   ArrowObject,
@@ -27,6 +27,7 @@ import {
 } from './render-effects';
 import type { ImageAssets } from './image-assets';
 import { drawPreviewImage } from './preview-image';
+import { applyObjectShadow, clearShadow, drawMaskShadow, shadowAllowedAt } from './render-shadow';
 
 const FONT_FAMILY = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 
@@ -149,9 +150,9 @@ function drawOrderedObjects(
     if (object.type === 'magnifier') {
       const surface = getLensSource(image, underlay, privacy, bounds, assets, options);
       drawMagnifier(ctx, surface.canvas, object, surface.bounds);
-      if (object.note?.trim()) drawShapeNote(ctx, object, bounds);
+      if (object.note?.trim()) drawShapeNote(ctx, object, bounds, privacy);
     } else {
-      drawNonLensObject(ctx, object, bounds, assets, preview);
+      drawNonLensObject(ctx, object, bounds, assets, preview, privacy);
       underlay.push(object);
     }
   }
@@ -163,14 +164,31 @@ function drawNonLensObject(
   bounds?: Rect,
   assets?: ImageAssets,
   preview = false,
+  privacy: readonly DrawingObject[] = [],
 ): void {
   if (object.type === 'image') {
     const source = assets!.get(object.assetId)!.source;
     const { x, y, width, height } = object.rect;
+    ctx.save();
+    clearShadow(ctx);
+    // Image cards cast a geometry-only shadow. Blurring raw image alpha could
+    // leak a private glyph's silhouette beyond a later opaque redaction.
+    drawMaskShadow(ctx, object.rect, object.style);
     if (preview) drawPreviewImage(ctx, source, object.rect);
     else ctx.drawImage(source, x, y, width, height);
-  } else if (object.type !== 'blur') drawObject(ctx, object, bounds);
-  if (object.note?.trim()) drawShapeNote(ctx, object, bounds);
+    ctx.restore();
+  } else if (object.type !== 'blur') {
+    // Privacy takes priority over glyph/stroke shadows. Keep immutable objects
+    // unchanged so this draw-time decision cannot invalidate drag/history caches.
+    // Include actual measured text extents AND crop-repositioned label geometry.
+    // Without redactions, avoid rebuilding cropped pen/label bounds every frame.
+    const shadows =
+      !privacy.some((item) => item.type === 'redact') ||
+      (shadowAllowedAt(objectVisualBounds(object), privacy) &&
+        (!bounds || shadowAllowedAt(objectBounds(object, bounds), privacy)));
+    drawObject(ctx, object, bounds, shadows);
+  }
+  if (object.note?.trim()) drawShapeNote(ctx, object, bounds, privacy);
 }
 
 function getLensSource(
@@ -220,7 +238,8 @@ function getLensSource(
     options,
     (ctx) => {
       drawBackground(ctx, image, bounds, options);
-      for (const object of objects) drawNonLensObject(ctx, object, labelBounds, assets);
+      for (const object of objects)
+        drawNonLensObject(ctx, object, labelBounds, assets, false, privacy);
     },
   );
   cache.entries.set(key, surface);
@@ -317,7 +336,8 @@ function getBlurUnderlay(
     options,
     (ctx) => {
       drawBackground(ctx, image, bounds, options);
-      for (const object of objects) drawNonLensObject(ctx, object, labelBounds, assets);
+      for (const object of objects)
+        drawNonLensObject(ctx, object, labelBounds, assets, false, redactions);
     },
     false,
   );
@@ -386,12 +406,12 @@ function renderSurface(
   try {
     paint(ctx);
     if (privacy.length) {
-      applyPrivacyEffects(ctx, canvas, privacy, bounds, options);
+      applyPrivacyEffects(ctx, canvas, privacy, bounds, options, privacyNotes);
       // Underlays contain masks, not their labels. Notes are painted once, above
       // the final blur, so caching cannot introduce a blurred duplicate label.
       if (privacyNotes)
         for (const object of privacy)
-          if (object.note?.trim()) drawShapeNote(ctx, object, labelBounds);
+          if (object.note?.trim()) drawShapeNote(ctx, object, labelBounds, privacy);
     }
   } catch (error) {
     // A failed filter cannot leave a cache containing partially sanitized pixels.
@@ -414,6 +434,7 @@ export function drawObject(
   ctx: CanvasRenderingContext2D,
   object: DrawingObject,
   sceneBounds?: Rect,
+  shadows = true,
 ): void {
   ctx.save();
   ctx.globalAlpha = 1;
@@ -423,13 +444,11 @@ export function drawObject(
   ctx.lineWidth = object.style.width;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  ctx.shadowColor = 'transparent';
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 0;
+  if (shadows || object.type === 'step') applyObjectShadow(ctx, object.style, object.type);
+  else clearShadow(ctx);
   switch (object.type) {
     case 'arrow':
-      drawArrow(ctx, object, sceneBounds);
+      drawArrow(ctx, object, sceneBounds, shadows);
       break;
     case 'pen':
       drawPen(ctx, object);
@@ -461,24 +480,19 @@ export function drawObject(
       drawText(ctx, object);
       break;
     case 'sticky':
-      drawSticky(ctx, object, sceneBounds);
+      drawSticky(ctx, object, sceneBounds, shadows);
       break;
   }
   ctx.restore();
 }
 
-function drawArrow(ctx: CanvasRenderingContext2D, arrow: ArrowObject, sceneBounds?: Rect): void {
+function drawArrow(
+  ctx: CanvasRenderingContext2D,
+  arrow: ArrowObject,
+  sceneBounds?: Rect,
+  shadows = true,
+): void {
   const control = arrowControl(arrow);
-  if (arrow.style.shadow !== false) {
-    // Canvas shadows ignore the transform, unlike the path they belong to.
-    // Keep their dimensions in document pixels for zoomed and HiDPI previews.
-    const transform = ctx.getTransform();
-    const rasterScale = Math.hypot(transform.a, transform.b);
-    ctx.shadowColor = 'rgba(24, 24, 38, 0.24)';
-    ctx.shadowBlur = 5 * rasterScale;
-    ctx.shadowOffsetX = 2 * transform.c;
-    ctx.shadowOffsetY = 2 * transform.d;
-  }
   const [headA, headB] = arrowHeadPoints(arrow);
   if (arrow.style.sketch) {
     const path = [
@@ -496,15 +510,22 @@ function drawArrow(ctx: CanvasRenderingContext2D, arrow: ArrowObject, sceneBound
     ctx.lineTo(headB.x, headB.y);
     ctx.stroke();
   }
-  if (arrow.label.trim()) drawArrowLabel(ctx, arrow, sceneBounds);
+  if (arrow.label.trim()) drawArrowLabel(ctx, arrow, sceneBounds, shadows);
 }
 
 function drawArrowLabel(
   ctx: CanvasRenderingContext2D,
   arrow: ArrowObject,
   sceneBounds?: Rect,
+  shadows = true,
 ): void {
-  drawLabelText(ctx, getArrowLabelLayout(arrow, sceneBounds), arrow.style.color);
+  drawLabelText(
+    ctx,
+    getArrowLabelLayout(arrow, sceneBounds),
+    arrow.style.color,
+    arrow.style,
+    shadows,
+  );
 }
 
 function drawStep(ctx: CanvasRenderingContext2D, object: StepObject): void {
@@ -513,7 +534,7 @@ function drawStep(ctx: CanvasRenderingContext2D, object: StepObject): void {
   ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
   ctx.fillStyle = object.style.color;
   ctx.fill();
-  ctx.shadowColor = 'transparent';
+  clearShadow(ctx);
   ctx.strokeStyle = '#ffffff';
   ctx.lineWidth = 3;
   ctx.stroke();

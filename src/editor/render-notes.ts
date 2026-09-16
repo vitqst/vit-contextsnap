@@ -1,34 +1,28 @@
 import { drawLabelText } from './render-label';
 import type { DrawingObject, Rect, StickyObject } from '../core/model';
 import { getNoteLayout, NOTE_FONT_FAMILY, stickyTextColor } from '../core/notes';
+import { applyObjectShadow, clearShadow, shadowAllowedAt } from './render-shadow';
+import { objectShadow, shadowBounds } from '../core/shadows';
 
-/** Shadows belong to the card surface only; text and later drawing objects stay flat. */
+/** A card and its text share the selected shadow mode, isolated from later objects. */
 export function drawSticky(
   ctx: CanvasRenderingContext2D,
   object: StickyObject,
   bounds?: Rect,
+  textShadows = true,
 ): void {
   ctx.save();
   ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = 'source-over';
   ctx.filter = 'none';
-  clearShadow(ctx);
-  if (object.style.shadow !== false) {
-    // Shadow blur and offsets are raster-space values, not transformed path units.
-    const transform = ctx.getTransform();
-    const rasterScale = Math.hypot(transform.a, transform.b);
-    ctx.shadowColor = 'rgba(24, 24, 38, 0.22)';
-    ctx.shadowBlur = 14 * rasterScale;
-    ctx.shadowOffsetX = 5 * transform.c;
-    ctx.shadowOffsetY = 5 * transform.d;
-  }
+  applyObjectShadow(ctx, object.style, object.type);
   const { x, y, width, height } = object.rect;
   ctx.fillStyle = object.style.color || '#ffe58f';
   ctx.beginPath();
   ctx.roundRect(x, y, width, height, Math.min(6, width / 2, height / 2));
   ctx.fill();
   clearShadow(ctx);
-  drawNoteText(ctx, object, stickyTextColor(object.style.color || '#ffe58f'), bounds);
+  drawNoteText(ctx, object, stickyTextColor(object.style.color || '#ffe58f'), bounds, textShadows);
   ctx.restore();
 }
 
@@ -37,6 +31,7 @@ export function drawShapeNote(
   ctx: CanvasRenderingContext2D,
   object: DrawingObject,
   bounds?: Rect,
+  privacy: readonly DrawingObject[] = [],
 ): void {
   if (object.type === 'arrow' || object.type === 'text' || object.type === 'sticky') return;
   if (!object.note?.trim()) return;
@@ -45,7 +40,9 @@ export function drawShapeNote(
   ctx.globalCompositeOperation = 'source-over';
   ctx.filter = 'none';
   clearShadow(ctx);
-  drawLabelText(ctx, getNoteLayout(object, bounds), object.style.color);
+  const layout = getNoteLayout(object, bounds);
+  const shadows = shadowAllowedAt(shadowBounds(layout.rect, objectShadow(object.style)), privacy);
+  drawLabelText(ctx, layout, object.style.color, object.style, shadows);
   ctx.restore();
 }
 
@@ -54,6 +51,7 @@ function drawNoteText(
   object: DrawingObject,
   color: string,
   bounds?: Rect,
+  shadows = true,
 ): void {
   const { rect, center, lines, fontSize, lineHeight } = getNoteLayout(object, bounds);
   if (!lines.length) return;
@@ -61,6 +59,8 @@ function drawNoteText(
   ctx.beginPath();
   ctx.rect(rect.x, rect.y, rect.width, rect.height);
   ctx.clip();
+  if (shadows) applyObjectShadow(ctx, object.style);
+  else clearShadow(ctx);
   ctx.font = `500 ${fontSize}px ${NOTE_FONT_FAMILY}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -72,11 +72,4 @@ function drawNoteText(
     ctx.fillText(line, center.x, y, rect.width);
   }
   ctx.restore();
-}
-
-function clearShadow(ctx: CanvasRenderingContext2D): void {
-  ctx.shadowColor = 'transparent';
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 0;
 }

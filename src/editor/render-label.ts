@@ -1,20 +1,24 @@
 import { LABEL_FONT_FAMILY, type LabelLayout } from '../core/label-layout';
+import type { ObjectStyle } from '../core/model';
+import { objectShadow, shadowBounds } from '../core/shadows';
+import { applyObjectShadow, clearShadow } from './render-shadow';
 
-/** Every shape label is plain colored text, with no surface, halo or shadow. */
+/** Labels remain plain colored text; their owner's shadow setting is shared. */
 export function drawLabelText(
   ctx: CanvasRenderingContext2D,
   layout: LabelLayout,
   color: string,
+  style: ObjectStyle,
+  shadows = true,
 ): void {
   const { rect, center, fontSize, lineHeight, lines } = layout;
   if (!lines.length) return;
   ctx.save();
-  ctx.shadowColor = 'transparent';
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 0;
+  if (shadows) applyObjectShadow(ctx, style);
+  else clearShadow(ctx);
+  const clip = shadowBounds(rect, shadows ? objectShadow(style) : null);
   ctx.beginPath();
-  ctx.rect(rect.x, rect.y, rect.width, rect.height);
+  ctx.rect(clip.x, clip.y, clip.width, clip.height);
   ctx.clip();
   ctx.font = `500 ${fontSize}px ${LABEL_FONT_FAMILY}`;
   ctx.textBaseline = 'middle';

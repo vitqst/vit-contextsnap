@@ -42,6 +42,7 @@ export function parseDrawingStyle(saved: unknown): ObjectStyle | null {
     width: saved.width,
     sketch: saved.sketch,
     shadow: 'shadow' in saved && typeof saved.shadow === 'boolean' ? saved.shadow : true,
+    shadowKind: 'shadowKind' in saved && saved.shadowKind === 'hard' ? 'hard' : 'soft',
   };
 }
 

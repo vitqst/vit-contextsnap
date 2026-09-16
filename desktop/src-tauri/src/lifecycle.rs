@@ -1,6 +1,7 @@
-use std::sync::atomic::{AtomicU64, Ordering};
-#[cfg(target_os = "linux")]
-use std::time::Duration;
+use std::{
+    sync::atomic::{AtomicU64, Ordering},
+    time::Duration,
+};
 
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
@@ -78,6 +79,50 @@ pub fn show_editor(window: &WebviewWindow) -> tauri::Result<()> {
     window.set_focus()
 }
 
+fn dispatch_menu<E>(
+    action: MenuAction,
+    tray: &TrayState,
+    mut show: impl FnMut() -> Result<(), E>,
+    emit: impl FnOnce(&str) -> Result<(), E>,
+) -> Result<(), E> {
+    if action == MenuAction::Capture {
+        // The hidden webview can receive events. Do not flash the old document
+        // before capture hides it again, and invalidate any in-flight close check.
+        tray.cancel_pending_close();
+    } else {
+        show()?;
+    }
+    let event = match action {
+        MenuAction::Capture => "contextsnap:capture-requested",
+        MenuAction::Quit => "contextsnap:quit-requested",
+        MenuAction::Open => return Ok(()),
+    };
+    if let Err(error) = emit(event) {
+        if action == MenuAction::Capture {
+            // A failed event cannot start the capture guard that normally restores
+            // the editor. Keep the existing window accessible for retry instead.
+            show()?;
+        }
+        return Err(error);
+    }
+    Ok(())
+}
+
+pub fn prepare_capture<E>(
+    tray: &TrayState,
+    visible: impl FnOnce() -> Result<bool, E>,
+    hide: impl FnOnce() -> Result<(), E>,
+) -> Result<Duration, E> {
+    tray.cancel_pending_close();
+    // Unknown visibility is handled conservatively: hide and wait rather than
+    // risk including the editor itself in the screenshot.
+    if !visible().unwrap_or(true) {
+        return Ok(Duration::ZERO);
+    }
+    hide()?;
+    Ok(Duration::from_millis(250))
+}
+
 pub fn handle_menu(app: &AppHandle, id: &str) {
     let capture_active = app.state::<CaptureState>().0.load(Ordering::Acquire);
     let Some(action) = menu_action(id, capture_active) else {
@@ -87,17 +132,12 @@ pub fn handle_menu(app: &AppHandle, id: &str) {
         eprintln!("Cannot handle desktop menu action: editor window is unavailable.");
         return;
     };
-    if let Err(error) = show_editor(&window) {
-        eprintln!("Could not reopen editor: {error}");
-        return;
-    }
-    let event = match action {
-        MenuAction::Capture => "contextsnap:capture-requested",
-        MenuAction::Quit => "contextsnap:quit-requested",
-        MenuAction::Open => return,
-    };
-    if let Err(error) = window.emit(event, ()) {
-        // The editor remains visible even when an event cannot be delivered.
+    if let Err(error) = dispatch_menu(
+        action,
+        &window.state::<TrayState>(),
+        || show_editor(&window),
+        |event| window.emit(event, ()),
+    ) {
         eprintln!("Could not send desktop menu action: {error}");
     }
 }
@@ -192,7 +232,137 @@ pub fn hide_to_tray(window: &Window) {
 
 #[cfg(test)]
 mod tests {
+    use std::cell::{Cell, RefCell};
+
     use super::*;
+
+    #[test]
+    fn tray_capture_dispatches_without_flashing_the_editor() {
+        let state = TrayState::new(true);
+        let events = RefCell::new(Vec::new());
+        dispatch_menu(
+            MenuAction::Capture,
+            &state,
+            || {
+                events.borrow_mut().push("show".to_owned());
+                Ok::<(), &str>(())
+            },
+            |event| {
+                events.borrow_mut().push(event.to_owned());
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(*events.borrow(), ["contextsnap:capture-requested"]);
+    }
+
+    #[test]
+    fn tray_capture_cancels_pending_close_before_dispatch() {
+        let state = TrayState::new(true);
+        let pending = state.begin_close();
+        dispatch_menu(
+            MenuAction::Capture,
+            &state,
+            || Ok::<(), &str>(()),
+            |_| {
+                assert!(!state.is_current_close(pending));
+                Ok(())
+            },
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn failed_capture_dispatch_restores_the_same_editor() {
+        let state = TrayState::new(true);
+        let events = RefCell::new(Vec::new());
+        let result = dispatch_menu(
+            MenuAction::Capture,
+            &state,
+            || {
+                events.borrow_mut().push("show");
+                Ok(())
+            },
+            |_| {
+                events.borrow_mut().push("emit");
+                Err("delivery failed")
+            },
+        );
+        assert_eq!(result, Err("delivery failed"));
+        assert_eq!(*events.borrow(), ["emit", "show"]);
+    }
+
+    #[test]
+    fn open_and_quit_still_reveal_the_editor_before_dispatch() {
+        for action in [MenuAction::Open, MenuAction::Quit] {
+            let state = TrayState::new(true);
+            let events = RefCell::new(Vec::new());
+            let quit = action == MenuAction::Quit;
+            dispatch_menu(
+                action,
+                &state,
+                || {
+                    events.borrow_mut().push("show".to_owned());
+                    Ok::<(), &str>(())
+                },
+                |event| {
+                    events.borrow_mut().push(event.to_owned());
+                    Ok(())
+                },
+            )
+            .unwrap();
+            assert_eq!(events.borrow()[0], "show");
+            assert_eq!(events.borrow().len(), if quit { 2 } else { 1 });
+            if quit {
+                assert_eq!(events.borrow()[1], "contextsnap:quit-requested");
+            }
+        }
+    }
+
+    #[test]
+    fn hidden_editor_needs_no_hide_or_compositor_delay() {
+        let state = TrayState::new(true);
+        let hidden = Cell::new(false);
+        let delay = prepare_capture(
+            &state,
+            || Ok::<bool, &str>(false),
+            || {
+                hidden.set(true);
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(delay, Duration::ZERO);
+        assert!(!hidden.get());
+    }
+
+    #[test]
+    fn visible_or_unknown_editor_is_hidden_before_compositor_delay() {
+        for visible in [Ok(true), Err("visibility unavailable")] {
+            let state = TrayState::new(true);
+            let hidden = Cell::new(false);
+            let delay = prepare_capture(
+                &state,
+                || visible,
+                || {
+                    hidden.set(true);
+                    Ok(())
+                },
+            )
+            .unwrap();
+            assert!(hidden.get());
+            assert_eq!(delay, Duration::from_millis(250));
+        }
+    }
+
+    #[test]
+    fn preparing_capture_cancels_pending_close_even_if_hiding_fails() {
+        let state = TrayState::new(true);
+        let pending = state.begin_close();
+        let result = prepare_capture(&state, || Ok(true), || Err("hide failed"));
+        assert_eq!(result, Err("hide failed"));
+        assert!(!state.is_current_close(pending));
+    }
 
     #[test]
     fn recognized_menu_items_route_to_editor_actions() {

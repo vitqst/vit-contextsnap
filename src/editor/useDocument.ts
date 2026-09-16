@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { EMPTY_DOCUMENT, type EditorDocument } from '../core/model';
 import { commitHistory, initialHistory, redoHistory, undoHistory } from '../core/history';
+import { retainSelection, selectObject } from '../core/selection';
 
 export function useDocument(validate?: (doc: EditorDocument) => boolean) {
   const validator = useRef(validate);
@@ -9,32 +10,40 @@ export function useDocument(validate?: (doc: EditorDocument) => boolean) {
   const liveHistory = useRef(history);
   const [preview, setPreview] = useState<EditorDocument | null>(null);
   const livePreview = useRef<EditorDocument | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<readonly string[]>([]);
+  const select = useCallback((id: string | null, toggle = false) => {
+    setSelectedIds((current) => selectObject(current, id, toggle));
+  }, []);
   const commit = useCallback((doc: EditorDocument) => {
     livePreview.current = null;
     setPreview(null);
     if (validator.current && !validator.current(doc)) return;
     liveHistory.current = commitHistory(liveHistory.current, doc);
     setHistory(liveHistory.current);
+    setSelectedIds((current) => retainSelection(current, doc.objects));
   }, []);
   const undo = useCallback(() => {
     livePreview.current = null;
     setPreview(null);
     liveHistory.current = undoHistory(liveHistory.current);
     setHistory(liveHistory.current);
+    const objects = liveHistory.current.present.objects;
+    setSelectedIds((current) => retainSelection(current, objects));
   }, []);
   const redo = useCallback(() => {
     livePreview.current = null;
     setPreview(null);
     liveHistory.current = redoHistory(liveHistory.current);
     setHistory(liveHistory.current);
+    const objects = liveHistory.current.present.objects;
+    setSelectedIds((current) => retainSelection(current, objects));
   }, []);
   const reset = useCallback(() => {
     livePreview.current = null;
     liveHistory.current = initialHistory<EditorDocument>({ version: 1, objects: [], crop: null });
     setHistory(liveHistory.current);
     setPreview(null);
-    setSelectedId(null);
+    setSelectedIds([]);
   }, []);
   const getCurrent = useCallback(() => liveHistory.current.present, []);
   const getPreview = useCallback(() => livePreview.current ?? liveHistory.current.present, []);
@@ -51,8 +60,9 @@ export function useDocument(validate?: (doc: EditorDocument) => boolean) {
     committed: history.present,
     preview: previewDocument,
     commit,
-    selectedId,
-    select: setSelectedId,
+    selectedIds,
+    selectedId: selectedIds.length === 1 ? selectedIds[0]! : null,
+    select,
     undo,
     redo,
     canUndo: history.past.length > 0,

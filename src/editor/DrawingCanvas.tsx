@@ -69,7 +69,8 @@ interface Props {
   arrowMode: 'straight' | 'curved';
   scale: number;
   selectedId: string | null;
-  select: (id: string | null) => void;
+  selectedIds: readonly string[];
+  select: (id: string | null, toggle?: boolean) => void;
   preview: (doc: EditorDocument | null) => void;
   commit: (doc: EditorDocument) => void;
   editText: (object: DrawingObject) => void;
@@ -96,7 +97,7 @@ function replaceObject(doc: EditorDocument, object: DrawingObject): EditorDocume
 function drawOverlay(
   ctx: CanvasRenderingContext2D,
   doc: EditorDocument,
-  selected: DrawingObject | undefined,
+  selectedObjects: readonly DrawingObject[],
   scale: number,
   width: number,
   height: number,
@@ -122,15 +123,23 @@ function drawOverlay(
       ctx.restore();
     }
   }
-  if (!selected) return;
+  if (!selectedObjects.length) return;
   ctx.save();
   ctx.strokeStyle = '#7966df';
   ctx.lineWidth = 1.25 / scale;
-  const bounds = objectBounds(selected, sceneBounds);
   const pad = 7 / scale;
   ctx.setLineDash([4 / scale, 3 / scale]);
-  ctx.strokeRect(bounds.x - pad, bounds.y - pad, bounds.width + pad * 2, bounds.height + pad * 2);
+  for (const object of selectedObjects) {
+    const bounds = objectBounds(object, sceneBounds);
+    ctx.strokeRect(bounds.x - pad, bounds.y - pad, bounds.width + pad * 2, bounds.height + pad * 2);
+  }
   ctx.setLineDash([]);
+  // Multiple selection currently supports deletion, not one-object resize handles.
+  if (selectedObjects.length !== 1) {
+    ctx.restore();
+    return;
+  }
+  const selected = selectedObjects[0]!;
   if (selected.type === 'arrow') {
     arrowHandles(selected, sceneBounds, scale).forEach(([handle, point]) => {
       ctx.beginPath();
@@ -175,6 +184,7 @@ export function DrawingCanvas(props: Props) {
     arrowMode,
     scale,
     selectedId,
+    selectedIds,
     select,
     preview: updatePreview,
     commit,
@@ -273,7 +283,7 @@ export function DrawingCanvas(props: Props) {
         drawOverlay(
           overlay,
           current,
-          current.objects.find((item) => item.id === selectedId),
+          current.objects.filter((item) => selectedIds.includes(item.id)),
           scale,
           viewportSize.width / scale,
           viewportSize.height / scale,
@@ -295,7 +305,7 @@ export function DrawingCanvas(props: Props) {
     bounds.x,
     bounds.y,
     scale,
-    selectedId,
+    selectedIds,
     tool,
     rasterWidth,
     rasterHeight,
@@ -356,6 +366,11 @@ export function DrawingCanvas(props: Props) {
     const committed = getCurrent();
     const sceneBounds = committed.crop ?? bounds;
     if (tool === 'select') {
+      if (event.shiftKey) {
+        // Toggle before handle/label hit testing; a Shift gesture never mutates geometry.
+        select(topObject(point)?.id ?? null, true);
+        return;
+      }
       const selected = committed.objects.find((object) => object.id === selectedId);
       if (
         selected?.type === 'magnifier' &&
@@ -720,6 +735,7 @@ export function DrawingCanvas(props: Props) {
           }
         }}
         onDoubleClick={(event) => {
+          if (event.shiftKey) return;
           const hit = topObject(pointAt(event.clientX, event.clientY), true);
           if (hit) {
             select(hit.id);
