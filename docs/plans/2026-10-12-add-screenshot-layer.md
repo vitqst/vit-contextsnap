@@ -24,7 +24,7 @@ Add a desktop test that opens a base capture, clicks a header button named `Add 
 
 **Step 2: Run test to verify it fails**
 
-Run: `npx playwright test --config playwright.desktop.config.ts --project chromium tests/desktop/editor.spec.ts -g "adds another screenshot"`
+Run: `npx playwright test tests/desktop/editor.spec.ts --config playwright.desktop.config.ts --project chromium -g "adds another screenshot"`
 
 Expected: FAIL because the `Add screenshot` button does not exist.
 
@@ -58,7 +58,7 @@ Add focused desktop tests showing that canceled and failed add-screenshot reques
 
 **Step 2: Run tests to verify they fail**
 
-Run: `npx playwright test --config playwright.desktop.config.ts --project chromium tests/desktop/editor.spec.ts -g "added screenshot"`
+Run: `npx playwright test tests/desktop/editor.spec.ts --config playwright.desktop.config.ts --project chromium -g "added screenshot"`
 
 Expected: at least one FAIL because add-capture-specific pending and error handling is incomplete.
 
@@ -98,7 +98,7 @@ npm run typecheck
 npm run lint
 npm run format:check
 npm test
-npx playwright test --config playwright.desktop.config.ts --project chromium tests/desktop/editor.spec.ts
+npx playwright test tests/desktop/editor.spec.ts --config playwright.desktop.config.ts --project chromium
 ```
 
 Expected: all PASS with no warnings introduced by the feature.
