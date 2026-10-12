@@ -15,6 +15,7 @@ interface Props {
   onCopyImage: () => void;
   saveLabel: string;
   onCapture?: () => void;
+  onAddScreenshot?: () => void;
 }
 
 export function EditorHeader({
@@ -30,6 +31,7 @@ export function EditorHeader({
   onCopyImage,
   saveLabel,
   onCapture,
+  onAddScreenshot,
 }: Props) {
   return (
     <header className="editor-header">
@@ -77,6 +79,18 @@ export function EditorHeader({
         </IconButton>
         {hasImage && (
           <>
+            {onAddScreenshot && (
+              <button
+                className="button add-image-button"
+                aria-label="Add screenshot"
+                title="Add screenshot"
+                disabled={busy}
+                onClick={onAddScreenshot}
+              >
+                <Camera size={16} />
+                <span>Add screenshot</span>
+              </button>
+            )}
             <button
               className="button add-image-button"
               aria-label="Add image"

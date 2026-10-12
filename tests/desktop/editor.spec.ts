@@ -19,6 +19,22 @@ test('desktop starts without Chrome and edits screenshots received through nativ
   expect((copied[0]!.args.png as number[]).slice(0, 8)).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
 });
 
+test('Add screenshot adds another screenshot as a selected undoable image layer', async ({
+  desktop: page,
+}) => {
+  await capture(page);
+  await page.getByRole('button', { name: 'Add screenshot', exact: true }).click();
+  await expect.poll(() => calls(page, 'capture_screenshot')).toHaveLength(2);
+  await expect(page.getByTestId('object-count')).toHaveText('1 object');
+  await expect(
+    page.getByRole('complementary', { name: 'Drawing properties' }).locator('.property-heading'),
+  ).toHaveText(/^Image\s*Selected$/);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(page.getByTestId('object-count')).toHaveText('0 objects');
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await expect(page.getByTestId('object-count')).toHaveText('1 object');
+});
+
 test('a new screenshot replaces unsaved work without a prompt after Save PNG was canceled', async ({
   desktop: page,
 }) => {

@@ -275,6 +275,36 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
     }
   }
 
+  async function addScreenshot() {
+    if (
+      !platform.captureScreenshot ||
+      !image ||
+      busy ||
+      loading ||
+      insertionPending.current ||
+      replacementPending.current
+    )
+      return;
+    insertionPending.current = true;
+    setInserting(true);
+    setError('');
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    setCancelToken((n) => n + 1);
+    state.preview(null);
+    const generation = importGeneration.current;
+    try {
+      const record = await platform.captureScreenshot();
+      if (!record || generation !== importGeneration.current || replacementPending.current) return;
+      insertionPending.current = false;
+      await addImage(new File([record.image], 'screenshot.png', { type: 'image/png' }));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not capture another screenshot.');
+    } finally {
+      insertionPending.current = false;
+      setInserting(false);
+    }
+  }
+
   // Native menu listeners outlive renders, so always dispatch against the latest editor state.
   const captureFromTray = useRef(captureScreenshot);
   captureFromTray.current = captureScreenshot;
@@ -968,6 +998,7 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
         returning={returning}
         onReturn={() => void backToWebsite()}
         onAddImage={() => layerInput.current?.click()}
+        onAddScreenshot={platform.captureScreenshot ? () => void addScreenshot() : undefined}
         onOpenImage={() => fileInput.current?.click()}
         onDownloadImage={() => void exportImage('save')}
         onCopyImage={() => void exportImage('copy')}
