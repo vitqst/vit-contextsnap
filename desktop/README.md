@@ -14,6 +14,10 @@ below; the Chrome extension ZIP is not a desktop installer. Windows is not a des
   capture immediately replaces the image and annotations in the same editor, without an
   unsaved-work prompt or another window. Save or copy first if you want to keep the previous
   screenshot; canceling or failing a capture preserves the existing work.
+- **Add screenshot** opens the same system picker while a document is already open, then adds
+  the result as a selected image layer instead of replacing the current work. Move, resize,
+  reorder, annotate, undo, or redo it like an image added from a file. Canceling or failing the
+  picker leaves the document and its undo history unchanged.
 - Linux uses the XDG Desktop Portal on X11 and Wayland. Available screen, window, and area
   choices depend on the desktop environment and its screenshot portal backend.
   On X11, if the screenshot portal is missing, an installed `gnome-screenshot` supplies
@@ -88,7 +92,9 @@ below; the Chrome extension ZIP is not a desktop installer. Windows is not a des
   Closing the window no longer discards work or quits the app.
 
 The capture shortcut is **Ctrl+Shift+S** on Linux and **Cmd+Shift+S** on macOS while
-ContextSnap is focused. There is no global capture shortcut or automatic startup in this version.
+ContextSnap is focused. Like the header's **Capture** action and the tray's **Screenshot** action,
+the shortcut starts a new screenshot and replaces the current scene; use **Add screenshot** to
+keep the current scene. There is no global capture shortcut or automatic startup in this version.
 The app stays running in the tray until you explicitly quit it.
 The ordinary editor shortcuts, including Ctrl/Cmd+C to copy and Ctrl/Cmd+Z to undo, also work.
 

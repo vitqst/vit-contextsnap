@@ -13,6 +13,7 @@
 ### Task 1: Specify successful screenshot-layer insertion
 
 **Files:**
+
 - Modify: `tests/desktop/editor.spec.ts`
 - Modify: `src/editor/EditorHeader.tsx`
 - Modify: `src/editor/Editor.tsx`
@@ -47,6 +48,7 @@ git commit -m "feat(desktop): add screenshot as image layer"
 ### Task 2: Preserve work across cancellation, failure, and pending capture
 
 **Files:**
+
 - Modify: `tests/desktop/editor.spec.ts`
 - Modify: `src/editor/Editor.tsx`
 
@@ -80,6 +82,7 @@ git commit -m "test(desktop): cover screenshot layer failures"
 ### Task 3: Document and verify the desktop workflow
 
 **Files:**
+
 - Modify: `desktop/README.md`
 
 **Step 1: Update documentation**
