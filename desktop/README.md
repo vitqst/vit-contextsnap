@@ -24,7 +24,7 @@ below; the Chrome extension ZIP is not a desktop installer. Windows is not a des
   an area picker instead. This fallback does not run after permission denial or on Wayland.
 - macOS uses the built-in interactive screenshot tool. Drag to select an area; press
   Space to select a window; press Escape to cancel.
-- Reuses arrows, editable labels, free drawing, rectangles, text, sticky notes, numbered
+- Reuses arrows, precise lines, editable labels, free drawing, rectangles, text, sticky notes, numbered
   steps, magnifiers, blur, solid redaction, crop, image layers, and undo/redo.
 - Notes update directly on the canvas while you type. **Auto** fits the text to the card:
   short notes use larger text, and more content shrinks it without growing the card. Resizing
@@ -44,7 +44,12 @@ below; the Chrome extension ZIP is not a desktop installer. Windows is not a des
   the text and uses the same Soft/Hard/Off shadow controls; it is included in copied images
   and PNG exports. Turning it off keeps the text and restores its transparent background.
 - New arrows are straight. Select an arrow and drag its middle handle to bend it; there
-  is no separate Straight/Curved mode switch.
+  is no separate Straight/Curved mode switch. Selected arrows can be **One-way** or **Two-way**
+  and use the original open **Standard** style or a filled tapered **Bold** style. Bold arrows
+  keep the same endpoint, bend, label, shadow, and undo/redo behavior.
+- **Line (L)** draws a plain segment without an arrowhead or label. Hold Shift while drawing
+  or dragging an endpoint to snap to the nearest 45° angle, including horizontal and vertical.
+  Lines support the shared color, thickness, sketch, shadow, selection, and layer controls.
 - Text, notes, and labels use locally bundled **Playpen Sans**, including Vietnamese.
   Font loading does not contact Google or require an internet connection.
 - On Linux, inline input-method composition is enabled in the native webview, so intermediate
