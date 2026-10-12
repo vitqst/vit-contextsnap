@@ -107,6 +107,7 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
   const [loading, setLoading] = useState(false);
   const [replacing, setReplacing] = useState(false);
   const [capturing, setCapturing] = useState(false);
+  const [addingScreenshot, setAddingScreenshot] = useState(false);
   const [inserting, setInserting] = useState(false);
   const [returning, setReturning] = useState(false);
   const [allowCaptureOpener, setAllowCaptureOpener] = useState(false);
@@ -287,6 +288,7 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
       return;
     insertionPending.current = true;
     setInserting(true);
+    setAddingScreenshot(true);
     setError('');
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     setCancelToken((n) => n + 1);
@@ -302,6 +304,7 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
     } finally {
       insertionPending.current = false;
       setInserting(false);
+      setAddingScreenshot(false);
     }
   }
 
@@ -1242,9 +1245,15 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
           {message}
         </div>
       )}
-      {(loading || inserting || capturing) && image && (
+      {(loading || inserting || capturing || addingScreenshot) && image && (
         <div className="loading-strip" role="status">
-          {capturing ? 'Capturing screenshot…' : inserting ? 'Adding image…' : 'Opening image…'}
+          {capturing
+            ? 'Capturing screenshot…'
+            : addingScreenshot
+              ? 'Capturing screenshot to add…'
+              : inserting
+                ? 'Adding image…'
+                : 'Opening image…'}
         </div>
       )}
       {dragOver && (

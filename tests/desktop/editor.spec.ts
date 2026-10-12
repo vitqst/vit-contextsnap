@@ -35,6 +35,55 @@ test('Add screenshot adds another screenshot as a selected undoable image layer'
   await expect(page.getByTestId('object-count')).toHaveText('1 object');
 });
 
+test('canceling an added screenshot preserves the document and undo history', async ({
+  desktop: page,
+}) => {
+  await capture(page);
+  await addArrow(page);
+  await page.evaluate(() => {
+    window.__desktopTest.captureResult = 'cancel';
+  });
+  await page.getByRole('button', { name: 'Add screenshot', exact: true }).click();
+  await expect.poll(() => calls(page, 'capture_screenshot')).toHaveLength(2);
+  await expect(page.getByTestId('object-count')).toHaveText('1 object');
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(page.getByTestId('object-count')).toHaveText('0 objects');
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await expect(page.getByTestId('object-count')).toHaveText('1 object');
+});
+
+test('a failed added screenshot preserves the current document', async ({ desktop: page }) => {
+  await capture(page);
+  await addArrow(page);
+  await page.evaluate(() => {
+    window.__desktopTest.captureResult = 'error';
+  });
+  await page.getByRole('button', { name: 'Add screenshot', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('Screen capture permission denied.');
+  await expect(page.getByTestId('object-count')).toHaveText('1 object');
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(page.getByTestId('object-count')).toHaveText('0 objects');
+});
+
+test('a pending added screenshot locks edits and identifies the capture operation', async ({
+  desktop: page,
+}) => {
+  await capture(page);
+  await addArrow(page);
+  await page.evaluate(() => {
+    window.__desktopTest.captureResult = 'pending';
+  });
+  await page.getByRole('button', { name: 'Add screenshot', exact: true }).click();
+  await expect.poll(() => calls(page, 'capture_screenshot')).toHaveLength(2);
+  await expect(page.locator('.editor-workspace')).toHaveAttribute('inert', '');
+  await expect(page.getByRole('status')).toHaveText('Capturing screenshot to add…');
+  await page.keyboard.press('Control+z');
+  await page.evaluate(() => window.__desktopTest.releaseCapture());
+  await expect(page.getByRole('button', { name: 'Save PNG', exact: true })).toBeEnabled();
+  await expect(page.getByTestId('object-count')).toHaveText('1 object');
+});
+
 test('a new screenshot replaces unsaved work without a prompt after Save PNG was canceled', async ({
   desktop: page,
 }) => {
