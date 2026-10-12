@@ -118,7 +118,7 @@ export function Properties({
             />
             <span>{style.color.toUpperCase()}</span>
           </label>
-          {['arrow', 'pen', 'rectangle', 'magnifier'].includes(type) && (
+          {['arrow', 'line', 'pen', 'rectangle', 'magnifier'].includes(type) && (
             <>
               <label className="property-label" htmlFor="stroke-width">
                 Thickness <span>{style.width} px</span>
@@ -131,7 +131,7 @@ export function Properties({
                 value={style.width}
                 onChange={(event) => onStyle({ width: Number(event.target.value) })}
               />
-              {['arrow', 'rectangle'].includes(type) && (
+              {['arrow', 'line', 'rectangle'].includes(type) && (
                 <div className="style-switch" role="group" aria-label="Stroke style">
                   <button
                     className={style.sketch ? 'chosen' : ''}
@@ -212,7 +212,7 @@ export function Properties({
         </div>
       </>
       {type === 'pen' && <BrushProperties value={brush} onChange={onBrush} />}
-      {selected && selected.type !== 'arrow' && selected.type !== 'text' && (
+      {selected && !['arrow', 'line', 'text'].includes(selected.type) && (
         <div className="label-property">
           <label className="property-label" htmlFor="shape-note">
             Note
@@ -227,7 +227,7 @@ export function Properties({
           />
         </div>
       )}
-      {selected && !['arrow', 'text', 'sticky'].includes(selected.type) && (
+      {selected && !['arrow', 'line', 'text', 'sticky'].includes(selected.type) && (
         <div className="label-property">
           <label className="property-label" htmlFor="shape-label-position">
             Label position
@@ -396,6 +396,13 @@ export function Properties({
           {selected
             ? 'Drag an endpoint to aim. Drag the middle handle to bend the arrow.'
             : 'Drag to draw a straight arrow. Select it and drag the middle handle to bend.'}
+        </p>
+      )}
+      {type === 'line' && (
+        <p className="property-note">
+          {selected
+            ? 'Drag either endpoint to aim. Hold Shift to snap to 45° angles.'
+            : 'Drag to draw. Hold Shift for horizontal, vertical, or 45° angles.'}
         </p>
       )}
     </aside>

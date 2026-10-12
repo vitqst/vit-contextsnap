@@ -3,6 +3,7 @@ import {
   CircleDashed,
   CircleDot,
   MousePointer2,
+  Minus,
   MoveUpRight,
   Pencil,
   RectangleHorizontal,
@@ -17,6 +18,7 @@ import { IconButton } from '../ui/IconButton';
 const TOOLS = [
   { id: 'select', title: 'Select', key: 'V', icon: MousePointer2 },
   { id: 'arrow', title: 'Arrow', key: 'A', icon: MoveUpRight },
+  { id: 'line', title: 'Line', key: 'L', icon: Minus },
   { id: 'pen', title: 'Pen', key: 'P', icon: Pencil },
   { id: 'rectangle', title: 'Rectangle', key: 'R', icon: RectangleHorizontal },
   { id: 'text', title: 'Text', key: 'T', icon: Type },

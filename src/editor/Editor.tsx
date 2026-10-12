@@ -43,6 +43,7 @@ import { fitViewport, panViewport, zoomViewport, type Viewport } from './viewpor
 const HINTS: Record<Tool, string> = {
   select: 'Click to select · Shift-click to select multiple · Drag to move · Double-click to label',
   arrow: 'Drag a straight arrow · Select it and drag its middle handle to bend it',
+  line: 'Drag a line · Hold Shift for horizontal, vertical, or 45° angles',
   pen: 'Draw freely · Pen pressure supported',
   rectangle: 'Drag to frame a detail · Hold Shift for a square',
   text: 'Click to add wrapping text · Drag a side handle to change its width',
@@ -828,6 +829,7 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
         const shortcuts: Record<string, Tool> = {
           v: 'select',
           a: 'arrow',
+          l: 'line',
           p: 'pen',
           r: 'rectangle',
           t: 'text',

@@ -16,6 +16,7 @@ import {
   type ObjectStyle,
   type Point,
   type Rect,
+  type LineHandle,
   type Tool,
   type BrushSettings,
 } from '../core/model';
@@ -31,6 +32,7 @@ import {
 } from '../core/geometry';
 import { arrowHandles } from '../core/arrow-handles';
 import { arrowControl } from '../core/arrows';
+import { moveLineHandle, snapLinePoint } from '../core/line';
 import {
   DEFAULT_TEXT_WIDTH,
   textHandles,
@@ -88,7 +90,7 @@ interface Gesture {
   kind: 'draw' | 'move' | 'handle' | 'crop' | 'crop-resize' | 'crop-move' | 'resize' | 'label';
   start: Point;
   object?: DrawingObject;
-  handle?: ArrowHandle;
+  handle?: ArrowHandle | LineHandle;
   imageHandle?: ImageHandle;
   textHandle?: TextHandle;
   cropHandle?: CropHandle;
@@ -156,6 +158,15 @@ function drawOverlay(
       ctx.fill();
       ctx.stroke();
     });
+  }
+  if (selected.type === 'line') {
+    for (const point of [selected.start, selected.end]) {
+      ctx.beginPath();
+      ctx.fillStyle = '#ffffff';
+      ctx.arc(point.x, point.y, 5 / scale, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
   }
   if (selected.type === 'image' || selected.type === 'sticky' || selected.type === 'rectangle') {
     drawSquareHandles(ctx, Object.values(imageHandles(selected.rect)), scale);
@@ -376,12 +387,30 @@ export function DrawingCanvas(props: Props) {
     const committed = getCurrent();
     const sceneBounds = committed.crop ?? bounds;
     if (tool === 'select') {
+      const selected = committed.objects.find((object) => object.id === selectedId);
       if (event.shiftKey) {
-        // Toggle before handle/label hit testing; a Shift gesture never mutates geometry.
+        if (selected?.type === 'line') {
+          const handle = (['start', 'end'] as const).find(
+            (name) => distance(point, selected[name]) < 11 / scale,
+          );
+          if (handle) {
+            gesture.current = {
+              kind: 'handle',
+              start: point,
+              object: selected,
+              handle,
+              doc: committed,
+              latest: committed,
+              moved: false,
+              pointerId: event.pointerId,
+            };
+            return;
+          }
+        }
+        // Away from a line endpoint, Shift retains its multi-selection meaning.
         select(topObject(point)?.id ?? null, true);
         return;
       }
-      const selected = committed.objects.find((object) => object.id === selectedId);
       if (selected?.type === 'text') {
         const handle = hitTestTextHandle(selected, point, 11 / scale);
         if (handle) {
@@ -452,14 +481,34 @@ export function DrawingCanvas(props: Props) {
           return;
         }
       }
+      if (selected?.type === 'line') {
+        const handle = (['start', 'end'] as const).find(
+          (name) => distance(point, selected[name]) < 11 / scale,
+        );
+        if (handle) {
+          gesture.current = {
+            kind: 'handle',
+            start: point,
+            object: selected,
+            handle,
+            doc: committed,
+            latest: committed,
+            moved: false,
+            pointerId: event.pointerId,
+          };
+          return;
+        }
+      }
       const hit = topObject(point);
       select(hit?.id ?? null);
       if (hit)
         gesture.current = {
           kind: (
-            hit.type === 'arrow'
-              ? hitTestArrowLabel(hit, point, sceneBounds)
-              : hitTestShapeLabel(hit, point, sceneBounds)
+            hit.type === 'line'
+              ? false
+              : hit.type === 'arrow'
+                ? hitTestArrowLabel(hit, point, sceneBounds)
+                : hitTestShapeLabel(hit, point, sceneBounds)
           )
             ? 'label'
             : 'move',
@@ -520,6 +569,8 @@ export function DrawingCanvas(props: Props) {
         label: '',
         labelOffset: { x: 0, y: 0 },
       };
+    } else if (tool === 'line') {
+      object = { ...base, type: 'line', start: point, end: point };
     } else if (tool === 'pen') {
       object = {
         ...base,
@@ -629,6 +680,12 @@ export function DrawingCanvas(props: Props) {
           };
         }
         object = moveArrowHandle(object, active.handle, point);
+      } else if (
+        active.kind === 'handle' &&
+        object.type === 'line' &&
+        (active.handle === 'start' || active.handle === 'end')
+      ) {
+        object = moveLineHandle(object, active.handle, point, event.shiftKey);
       } else if (active.kind === 'draw') {
         if (object.type === 'arrow') {
           object = {
@@ -637,6 +694,8 @@ export function DrawingCanvas(props: Props) {
             mode: 'straight',
             control: autoControl(active.start, point, true),
           };
+        } else if (object.type === 'line') {
+          object = { ...object, end: event.shiftKey ? snapLinePoint(active.start, point) : point };
         } else if (object.type === 'pen') {
           const latest = active.latest.objects.find((item) => item.id === object.id);
           const previous = latest?.type === 'pen' ? latest.points : object.points;
@@ -767,7 +826,7 @@ export function DrawingCanvas(props: Props) {
         onDoubleClick={(event) => {
           if (event.shiftKey) return;
           const hit = topObject(pointAt(event.clientX, event.clientY), true);
-          if (hit) {
+          if (hit && hit.type !== 'line') {
             select(hit.id);
             editText(hit);
           }

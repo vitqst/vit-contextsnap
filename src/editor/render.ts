@@ -452,6 +452,9 @@ export function drawObject(
     case 'arrow':
       drawArrow(ctx, object, sceneBounds, shadows);
       break;
+    case 'line':
+      drawLine(ctx, object);
+      break;
     case 'pen':
       drawPen(ctx, object);
       break;
@@ -486,6 +489,25 @@ export function drawObject(
       break;
   }
   ctx.restore();
+}
+
+function drawLine(ctx: CanvasRenderingContext2D, line: Extract<DrawingObject, { type: 'line' }>) {
+  if (line.style.sketch) {
+    rough
+      .canvas(ctx.canvas)
+      .line(
+        line.start.x,
+        line.start.y,
+        line.end.x,
+        line.end.y,
+        roughOptions(line.style, line.seed),
+      );
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(line.start.x, line.start.y);
+    ctx.lineTo(line.end.x, line.end.y);
+    ctx.stroke();
+  }
 }
 
 function drawArrow(

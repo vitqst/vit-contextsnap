@@ -136,6 +136,7 @@ export type DrawingObject =
 export type Tool =
   | 'select'
   | 'arrow'
+  | 'line'
   | 'pen'
   | 'rectangle'
   | 'text'
