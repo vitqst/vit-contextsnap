@@ -1,8 +1,9 @@
 import { drawLabelText } from './render-label';
 import rough from 'roughjs';
 import { getArrowLabelLayout } from '../core/arrow-label';
-import { arrowHeadPoints, objectBounds } from '../core/geometry';
+import { objectBounds } from '../core/geometry';
 import { arrowControl } from '../core/arrows';
+import { arrowAppearance, arrowHeads, boldArrowOutline } from '../core/arrow-shape';
 import { LABEL_FONT_FAMILY } from '../core/label-layout';
 import { getTextCardRect, getTextLayout, TEXT_CARD_RADIUS } from '../core/text-layout';
 import { penOutline } from '../core/brush';
@@ -517,22 +518,48 @@ function drawArrow(
   shadows = true,
 ): void {
   const control = arrowControl(arrow);
-  const [headA, headB] = arrowHeadPoints(arrow);
-  if (arrow.style.sketch) {
-    const path = [
-      `M ${arrow.start.x} ${arrow.start.y}`,
-      `Q ${control.x} ${control.y} ${arrow.end.x} ${arrow.end.y}`,
-      `M ${headA.x} ${headA.y} L ${arrow.end.x} ${arrow.end.y} L ${headB.x} ${headB.y}`,
-    ].join(' ');
-    rough.canvas(ctx.canvas).path(path, roughOptions(arrow.style, arrow.seed));
+  if (arrowAppearance(arrow) === 'bold') {
+    const outline = boldArrowOutline(arrow);
+    const path = `${outline
+      .map((point, index) => `${index ? 'L' : 'M'} ${point.x} ${point.y}`)
+      .join(' ')} Z`;
+    if (arrow.style.sketch)
+      rough.canvas(ctx.canvas).path(path, {
+        ...roughOptions(arrow.style, arrow.seed),
+        fill: arrow.style.color,
+        fillStyle: 'solid',
+      });
+    else {
+      ctx.beginPath();
+      outline.forEach((point, index) =>
+        index ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y),
+      );
+      ctx.closePath();
+      ctx.fill();
+    }
   } else {
-    ctx.beginPath();
-    ctx.moveTo(arrow.start.x, arrow.start.y);
-    ctx.quadraticCurveTo(control.x, control.y, arrow.end.x, arrow.end.y);
-    ctx.moveTo(headA.x, headA.y);
-    ctx.lineTo(arrow.end.x, arrow.end.y);
-    ctx.lineTo(headB.x, headB.y);
-    ctx.stroke();
+    const heads = arrowHeads(arrow);
+    if (arrow.style.sketch) {
+      const path = [
+        `M ${arrow.start.x} ${arrow.start.y}`,
+        `Q ${control.x} ${control.y} ${arrow.end.x} ${arrow.end.y}`,
+        ...heads.map(
+          ({ tip, corners }) =>
+            `M ${corners[0].x} ${corners[0].y} L ${tip.x} ${tip.y} L ${corners[1].x} ${corners[1].y}`,
+        ),
+      ].join(' ');
+      rough.canvas(ctx.canvas).path(path, roughOptions(arrow.style, arrow.seed));
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(arrow.start.x, arrow.start.y);
+      ctx.quadraticCurveTo(control.x, control.y, arrow.end.x, arrow.end.y);
+      for (const { tip, corners } of heads) {
+        ctx.moveTo(corners[0].x, corners[0].y);
+        ctx.lineTo(tip.x, tip.y);
+        ctx.lineTo(corners[1].x, corners[1].y);
+      }
+      ctx.stroke();
+    }
   }
   if (arrow.label.trim()) drawArrowLabel(ctx, arrow, sceneBounds, shadows);
 }

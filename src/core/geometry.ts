@@ -125,7 +125,10 @@ function baseObjectBounds(object: DrawingObject, sceneBounds?: Rect): Rect {
   switch (object.type) {
     case 'arrow': {
       if (arrowAppearance(object) === 'bold') {
-        let bounds = boundsOfPoints(boldArrowOutline(object));
+        let bounds = expand(
+          boundsOfPoints(boldArrowOutline(object)),
+          object.style.sketch ? object.style.width / 2 + 2 : 0,
+        );
         if (object.label.trim())
           bounds = union(bounds, getArrowLabelLayout(object, sceneBounds).rect);
         return bounds;

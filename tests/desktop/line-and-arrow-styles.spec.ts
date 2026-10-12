@@ -66,6 +66,59 @@ async function exportedRedBounds(page: Page) {
   });
 }
 
+async function exportedRedStats(page: Page) {
+  const previous = (await calls(page, 'save_png')).length;
+  await page.getByRole('button', { name: 'Save PNG', exact: true }).click();
+  await expect.poll(async () => (await calls(page, 'save_png')).length).toBe(previous + 1);
+  return page.evaluate(async () => {
+    const saved = window.__desktopTest.calls.filter((call) => call.command === 'save_png').at(-1)!;
+    const image = new Image();
+    const url = URL.createObjectURL(
+      new Blob([new Uint8Array(saved.args.png as number[])], { type: 'image/png' }),
+    );
+    try {
+      image.src = url;
+      await image.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      const context = canvas.getContext('2d')!;
+      context.drawImage(image, 0, 0);
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      const points: Array<{ x: number; y: number }> = [];
+      for (let y = 0; y < 400; y++) {
+        for (let x = 0; x < canvas.width; x++) {
+          const index = (y * canvas.width + x) * 4;
+          const red = pixels[index]!;
+          const green = pixels[index + 1]!;
+          const blue = pixels[index + 2]!;
+          if (red > 150 && red - green > 60 && red - blue > 60) points.push({ x, y });
+        }
+      }
+      if (!points.length) throw new Error('Expected red arrow pixels');
+      const left = Math.min(...points.map((point) => point.x));
+      const right = Math.max(...points.map((point) => point.x));
+      const top = Math.min(...points.map((point) => point.y));
+      const bottom = Math.max(...points.map((point) => point.y));
+      const endpointSpan = (from: number, to: number) => {
+        const ys = points
+          .filter((point) => point.x >= from && point.x <= to)
+          .map((point) => point.y);
+        return ys.length ? Math.max(...ys) - Math.min(...ys) + 1 : 0;
+      };
+      return {
+        count: points.length,
+        width: right - left + 1,
+        height: bottom - top + 1,
+        startSpan: endpointSpan(left, left + 80),
+        endSpan: endpointSpan(right - 80, right),
+      };
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  });
+}
+
 test('Line tool is available by toolbar and L shortcut and preserves free angles', async ({
   desktop: page,
 }) => {
@@ -101,4 +154,49 @@ test('Line Shift gestures snap creation and endpoint edits to 45 degree incremen
   expect(horizontal.height).toBeLessThan(15);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   expect(await exportedRedBounds(page)).toEqual(diagonal);
+});
+
+test('arrow direction and style controls render an undoable curved Bold two-way arrow', async ({
+  desktop: page,
+}) => {
+  await capture(page);
+  await page.getByRole('button', { name: 'Arrow (A)', exact: true }).click();
+  await page.getByRole('button', { name: 'Clean', exact: true }).click();
+  await page.getByRole('checkbox', { name: 'Shadow', exact: true }).uncheck();
+  await drag(page, { x: 180, y: 260 }, { x: 720, y: 260 });
+
+  const direction = page.getByRole('group', { name: 'Arrow direction' });
+  const appearance = page.getByRole('group', { name: 'Arrow style' });
+  await expect(direction.getByRole('button', { name: 'One-way', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(appearance.getByRole('button', { name: 'Standard', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await direction.getByRole('button', { name: 'Two-way', exact: true }).click();
+  await appearance.getByRole('button', { name: 'Bold', exact: true }).click();
+  const straight = await exportedRedStats(page);
+  expect(straight.count).toBeGreaterThan(3_000);
+  expect(straight.startSpan).toBeGreaterThan(20);
+  expect(straight.endSpan).toBeGreaterThan(20);
+
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(appearance.getByRole('button', { name: 'Standard', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await expect(appearance.getByRole('button', { name: 'Bold', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+
+  await drag(page, { x: 450, y: 260 }, { x: 450, y: 130 });
+  const curved = await exportedRedStats(page);
+  expect(curved.height).toBeGreaterThan(100);
+  expect(curved.count).toBeGreaterThan(3_000);
+  expect(curved.startSpan).toBeGreaterThan(20);
+  expect(curved.endSpan).toBeGreaterThan(20);
 });
