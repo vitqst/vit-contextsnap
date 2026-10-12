@@ -16,8 +16,9 @@ export function arrowAppearance(arrow: ArrowObject): 'standard' | 'bold' {
 
 export function arrowHeads(arrow: ArrowObject): ArrowHead[] {
   const control = arrowControl(arrow);
-  const heads = [headAt(arrow, arrow.end, control)];
-  if (arrowDirection(arrow) === 'two-way') heads.unshift(headAt(arrow, arrow.start, control));
+  const heads = [headAt(arrow, arrow.end, control, arrow.start)];
+  if (arrowDirection(arrow) === 'two-way')
+    heads.unshift(headAt(arrow, arrow.start, control, arrow.end));
   return heads;
 }
 
@@ -61,8 +62,14 @@ export function boldArrowOutline(arrow: ArrowObject): Point[] {
   return points;
 }
 
-function headAt(arrow: ArrowObject, tip: Point, tangent: Point): ArrowHead {
-  const angle = Math.atan2(tip.y - tangent.y, tip.x - tangent.x);
+function headAt(
+  arrow: ArrowObject,
+  tip: Point,
+  tangent: Point,
+  oppositeEndpoint: Point,
+): ArrowHead {
+  const directionPoint = distance(tip, tangent) > 0.001 ? tangent : oppositeEndpoint;
+  const angle = Math.atan2(tip.y - directionPoint.y, tip.x - directionPoint.x);
   const headLength = Math.min(
     Math.max(14, arrow.style.width * 4.5),
     Math.max(6, distance(arrow.start, arrow.end) * 0.4),

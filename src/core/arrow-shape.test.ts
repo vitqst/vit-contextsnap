@@ -32,6 +32,31 @@ describe('arrow appearance geometry', () => {
     expect(heads[1]!.corners.every((point) => point.x < arrow.end.x)).toBe(true);
   });
 
+  it('uses the chord for an end head when the control point equals the end', () => {
+    const vertical = {
+      ...arrow,
+      start: { x: 40, y: 20 },
+      end: { x: 40, y: 180 },
+      control: { x: 40, y: 180 },
+      mode: 'curved' as const,
+    };
+    const [head] = arrowHeads(vertical);
+    expect(head!.corners.every((point) => point.y < vertical.end.y)).toBe(true);
+  });
+
+  it('uses the chord for a start head when the control point equals the start', () => {
+    const vertical = {
+      ...arrow,
+      start: { x: 40, y: 20 },
+      end: { x: 40, y: 180 },
+      control: { x: 40, y: 20 },
+      mode: 'curved' as const,
+      direction: 'two-way' as const,
+    };
+    const [head] = arrowHeads(vertical);
+    expect(head!.corners.every((point) => point.y > vertical.start.y)).toBe(true);
+  });
+
   it('builds a wide closed tapered outline for one-way bold arrows', () => {
     const points = boldArrowOutline({ ...arrow, appearance: 'bold' });
     expect(points.length).toBeGreaterThan(12);
