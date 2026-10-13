@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 test('stable release has matching package and Chrome manifest versions', async () => {
   const manifest = JSON.parse(await readFile(resolve('.output/chrome-mv3/manifest.json'), 'utf8'));
   const pkg = JSON.parse(await readFile(resolve('package.json'), 'utf8'));
-  expect(pkg.version).toBe('0.3.0');
+  expect(pkg.version).toBe('0.3.1');
   expect(manifest.version).toBe(pkg.version);
   expect(manifest.version_name ?? manifest.version).toBe(pkg.version);
 });

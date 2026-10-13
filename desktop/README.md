@@ -4,8 +4,20 @@ A small desktop screenshot editor for **Linux and macOS**, built with Rust and T
 Capture another application or an area of your screen, then annotate it with the same
 React/Canvas editor used by the [Chrome extension](../README.md).
 
-This is the first desktop development version. Build it from source using the instructions
-below; the Chrome extension ZIP is not a desktop installer. Windows is not a desktop target yet.
+Download a v0.3.1 desktop package or build it from source using the instructions below; the
+Chrome extension ZIP is not a desktop installer. Windows is not a desktop target yet.
+
+## Install a packaged release
+
+- **Linux (amd64):** download
+  [`contextsnap-0.3.1-linux-amd64.deb`](https://github.com/vitqst/vit-contextsnap/releases/download/v0.3.1/contextsnap-0.3.1-linux-amd64.deb),
+  then install it with `sudo apt install ./contextsnap-0.3.1-linux-amd64.deb`.
+- **macOS (Apple silicon):** download
+  [`contextsnap-0.3.1-macos-arm64.dmg`](https://github.com/vitqst/vit-contextsnap/releases/download/v0.3.1/contextsnap-0.3.1-macos-arm64.dmg),
+  open it, and drag **ContextSnap Desktop** into **Applications**. This build is currently
+  unsigned, so macOS may require explicit approval in **Privacy & Security** before opening it.
+
+Use the release `SHA256SUMS` asset to verify downloaded packages.
 
 ## What it does
 

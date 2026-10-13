@@ -6,15 +6,15 @@ All processing and image storage stay on your device.
 
 For screenshots outside the browser, see the separate [Linux and macOS desktop app README](desktop/README.md).
 
-[Download for Chrome — v0.3.0](https://github.com/vitqst/vit-contextsnap/releases/download/v0.3.0/contextsnap-0.3.0-chrome.zip)
-· [Release notes](docs/releases/0.3.0.md)
+[Download for Chrome — v0.3.1](https://github.com/vitqst/vit-contextsnap/releases/download/v0.3.1/contextsnap-0.3.1-chrome.zip)
+· [Release notes](docs/releases/0.3.1.md)
 · [MIT license](LICENSE)
 
 ![ContextSnap editor with a labeled curved arrow and numbered steps on a fictional checkout page](docs/images/editor-overview.png)
 
 ## Install in Chrome — no build needed
 
-1. Download [contextsnap-0.3.0-chrome.zip](https://github.com/vitqst/vit-contextsnap/releases/download/v0.3.0/contextsnap-0.3.0-chrome.zip).
+1. Download [contextsnap-0.3.1-chrome.zip](https://github.com/vitqst/vit-contextsnap/releases/download/v0.3.1/contextsnap-0.3.1-chrome.zip).
    Use this extension ZIP, not GitHub's **Source code** archive.
 2. **Unzip** it into a folder you will keep on your computer.
 3. Open `chrome://extensions` and enable **Developer mode**.
@@ -24,7 +24,7 @@ For screenshots outside the browser, see the separate [Linux and macOS desktop a
 
 Requires Chrome 120 or later. No Node.js, npm, server, API key, or account is needed.
 This is a manually installed Chrome MV3 extension, not a Chrome Web Store listing.
-Other Chromium browsers are not yet independently tested. A [SHA-256 checksum](https://github.com/vitqst/vit-contextsnap/releases/download/v0.3.0/SHA256SUMS)
+Other Chromium browsers are not yet independently tested. A [SHA-256 checksum](https://github.com/vitqst/vit-contextsnap/releases/download/v0.3.1/SHA256SUMS)
 is included with the release to verify the ZIP.
 
 ## See the released tools in action
@@ -160,36 +160,37 @@ The [original requirements](docs/spec/20260915-init-requirement.md) remain the l
 backlog. Live-page annotations/text output, full-page capture, localization, and Web Store
 publication are deferred. Pressure/speed brush controls are part of the RC preview above.
 
-## Upcoming editor additions (source builds)
+## New in v0.3.1
 
-These additions are present on the current source branch but are not included in the
-v0.3.0 release ZIP linked above.
+This maintenance release adds screenshot layering and more precise pointing tools.
 
 - **Line (L)** draws a plain segment without an arrowhead. Hold Shift while creating a line
   or moving one of its endpoints to snap it horizontally, vertically, or to a 45° diagonal.
 - Selected arrows can be **One-way** or **Two-way** and use the original open **Standard**
   style or a filled tapered **Bold** style.
+- **Add screenshot** in the desktop app captures another screenshot into the current document
+  as an editable image layer without replacing existing work.
 
 ## Shortcuts
 
-| Action                                                  | Shortcut                                    |
-| ------------------------------------------------------- | ------------------------------------------- |
-| Open popup                                              | Alt+Shift+S                                 |
-| Select area                                             | Ctrl+Shift+1 (Cmd+Shift+1 on macOS)         |
-| Capture visible page                                    | Alt+Shift+V                                 |
-| Select / Arrow / Pen / Rectangle / Text / Redact / Crop | V / A / P / R / T / X / C                   |
-| Step / Magnifier / Blur                                 | S / M / B                                   |
-| Sticky note (RC preview)                                | N                                           |
-| Straight arrow or square rectangle                      | Hold Shift while drawing                    |
-| Undo / Redo                                             | Ctrl+Z / Ctrl+Shift+Z (Cmd on macOS)        |
-| Copy image                                              | Ctrl+C (Cmd on macOS)                       |
-| Finish inline text                                      | Ctrl+Enter (Cmd on macOS), or click outside |
-| Delete selected object                                  | Delete or Backspace                         |
-| Duplicate selected object                               | Ctrl+D (Cmd on macOS)                       |
-| Move selected object                                    | Arrow keys; hold Shift for 10 pixels        |
-| Fit to screen                                           | Ctrl+0 (Cmd on macOS)                       |
-| Zoom                                                    | Ctrl/Cmd+scroll or zoom buttons             |
-| Cancel gesture / exit area selection                    | Escape                                      |
+| Action                                                         | Shortcut                                    |
+| -------------------------------------------------------------- | ------------------------------------------- |
+| Open popup                                                     | Alt+Shift+S                                 |
+| Select area                                                    | Ctrl+Shift+1 (Cmd+Shift+1 on macOS)         |
+| Capture visible page                                           | Alt+Shift+V                                 |
+| Select / Arrow / Line / Pen / Rectangle / Text / Redact / Crop | V / A / L / P / R / T / X / C               |
+| Step / Magnifier / Blur                                        | S / M / B                                   |
+| Sticky note (RC preview)                                       | N                                           |
+| Snap line to 45° / draw square rectangle                       | Hold Shift while drawing                    |
+| Undo / Redo                                                    | Ctrl+Z / Ctrl+Shift+Z (Cmd on macOS)        |
+| Copy image                                                     | Ctrl+C (Cmd on macOS)                       |
+| Finish inline text                                             | Ctrl+Enter (Cmd on macOS), or click outside |
+| Delete selected object                                         | Delete or Backspace                         |
+| Duplicate selected object                                      | Ctrl+D (Cmd on macOS)                       |
+| Move selected object                                           | Arrow keys; hold Shift for 10 pixels        |
+| Fit to screen                                                  | Ctrl+0 (Cmd on macOS)                       |
+| Zoom                                                           | Ctrl/Cmd+scroll or zoom buttons             |
+| Cancel gesture / exit area selection                           | Escape                                      |
 
 On macOS, extension shortcuts use Option instead of Alt. Browser or OS shortcuts can
 conflict; change extension shortcuts at `chrome://extensions/shortcuts`.

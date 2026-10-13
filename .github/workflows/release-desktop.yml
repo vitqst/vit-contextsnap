@@ -72,7 +72,7 @@ jobs:
           else
             package="$(find desktop/src-tauri/target/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
             test -n "$package"
-            cp "$package" "release/contextsnap-${version}-macos-x64.dmg"
+            cp "$package" "release/contextsnap-${version}-macos-arm64.dmg"
           fi
       - uses: actions/upload-artifact@v4
         with:

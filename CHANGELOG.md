@@ -4,6 +4,19 @@
 
 No changes yet.
 
+## 0.3.1 — Screenshot layers and drawing tools
+
+- Add a desktop **Add screenshot** action that captures into the current document as a
+  selected, editable image layer while preserving replacement capture behavior elsewhere.
+- Preserve the current document and undo history when an added screenshot is canceled or
+  fails, and lock conflicting mutations while capture is pending.
+- Add a dedicated **Line (L)** tool with shared color, thickness, sketch, shadow, selection,
+  layer, undo/redo, and export behavior.
+- Snap line creation and endpoint edits to horizontal, vertical, or 45-degree angles while
+  Shift is held, without changing Shift multi-selection behavior.
+- Add one-way and two-way arrows plus open **Standard** and filled tapered **Bold** styles for
+  both straight and curved arrows, including compatible bounds, hit testing, and exports.
+
 ## 0.3.0 — Desktop editor and drawing refinements
 
 - Restore the existing editor's foreground focus after Linux/X11 capture using main-thread
