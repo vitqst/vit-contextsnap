@@ -14,13 +14,17 @@ below; the Chrome extension ZIP is not a desktop installer. Windows is not a des
   capture immediately replaces the image and annotations in the same editor, without an
   unsaved-work prompt or another window. Save or copy first if you want to keep the previous
   screenshot; canceling or failing a capture preserves the existing work.
+- **Add screenshot** opens the same system picker while a document is already open, then adds
+  the result as a selected image layer instead of replacing the current work. Move, resize,
+  reorder, annotate, undo, or redo it like an image added from a file. Canceling or failing the
+  picker leaves the document and its undo history unchanged.
 - Linux uses the XDG Desktop Portal on X11 and Wayland. Available screen, window, and area
   choices depend on the desktop environment and its screenshot portal backend.
   On X11, if the screenshot portal is missing, an installed `gnome-screenshot` supplies
   an area picker instead. This fallback does not run after permission denial or on Wayland.
 - macOS uses the built-in interactive screenshot tool. Drag to select an area; press
   Space to select a window; press Escape to cancel.
-- Reuses arrows, editable labels, free drawing, rectangles, text, sticky notes, numbered
+- Reuses arrows, precise lines, editable labels, free drawing, rectangles, text, sticky notes, numbered
   steps, magnifiers, blur, solid redaction, crop, image layers, and undo/redo.
 - Notes update directly on the canvas while you type. **Auto** fits the text to the card:
   short notes use larger text, and more content shrinks it without growing the card. Resizing
@@ -40,7 +44,12 @@ below; the Chrome extension ZIP is not a desktop installer. Windows is not a des
   the text and uses the same Soft/Hard/Off shadow controls; it is included in copied images
   and PNG exports. Turning it off keeps the text and restores its transparent background.
 - New arrows are straight. Select an arrow and drag its middle handle to bend it; there
-  is no separate Straight/Curved mode switch.
+  is no separate Straight/Curved mode switch. Selected arrows can be **One-way** or **Two-way**
+  and use the original open **Standard** style or a filled tapered **Bold** style. Bold arrows
+  keep the same endpoint, bend, label, shadow, and undo/redo behavior.
+- **Line (L)** draws a plain segment without an arrowhead or label. Hold Shift while drawing
+  or dragging an endpoint to snap to the nearest 45° angle, including horizontal and vertical.
+  Lines support the shared color, thickness, sketch, shadow, selection, and layer controls.
 - Text, notes, and labels use locally bundled **Playpen Sans**, including Vietnamese.
   Font loading does not contact Google or require an internet connection.
 - On Linux, inline input-method composition is enabled in the native webview, so intermediate
@@ -88,7 +97,9 @@ below; the Chrome extension ZIP is not a desktop installer. Windows is not a des
   Closing the window no longer discards work or quits the app.
 
 The capture shortcut is **Ctrl+Shift+S** on Linux and **Cmd+Shift+S** on macOS while
-ContextSnap is focused. There is no global capture shortcut or automatic startup in this version.
+ContextSnap is focused. Like the header's **Capture** action and the tray's **Screenshot** action,
+the shortcut starts a new screenshot and replaces the current scene; use **Add screenshot** to
+keep the current scene. There is no global capture shortcut or automatic startup in this version.
 The app stays running in the tray until you explicitly quit it.
 The ordinary editor shortcuts, including Ctrl/Cmd+C to copy and Ctrl/Cmd+Z to undo, also work.
 

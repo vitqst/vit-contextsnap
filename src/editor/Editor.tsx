@@ -43,6 +43,7 @@ import { fitViewport, panViewport, zoomViewport, type Viewport } from './viewpor
 const HINTS: Record<Tool, string> = {
   select: 'Click to select · Shift-click to select multiple · Drag to move · Double-click to label',
   arrow: 'Drag a straight arrow · Select it and drag its middle handle to bend it',
+  line: 'Drag a line · Hold Shift for horizontal, vertical, or 45° angles',
   pen: 'Draw freely · Pen pressure supported',
   rectangle: 'Drag to frame a detail · Hold Shift for a square',
   text: 'Click to add wrapping text · Drag a side handle to change its width',
@@ -107,6 +108,7 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
   const [loading, setLoading] = useState(false);
   const [replacing, setReplacing] = useState(false);
   const [capturing, setCapturing] = useState(false);
+  const [addingScreenshot, setAddingScreenshot] = useState(false);
   const [inserting, setInserting] = useState(false);
   const [returning, setReturning] = useState(false);
   const [allowCaptureOpener, setAllowCaptureOpener] = useState(false);
@@ -272,6 +274,38 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
       replacementPending.current = false;
       setReplacing(false);
       setCapturing(false);
+    }
+  }
+
+  async function addScreenshot() {
+    if (
+      !platform.captureScreenshot ||
+      !image ||
+      busy ||
+      loading ||
+      insertionPending.current ||
+      replacementPending.current
+    )
+      return;
+    insertionPending.current = true;
+    setInserting(true);
+    setAddingScreenshot(true);
+    setError('');
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    setCancelToken((n) => n + 1);
+    state.preview(null);
+    const generation = importGeneration.current;
+    try {
+      const record = await platform.captureScreenshot();
+      if (!record || generation !== importGeneration.current || replacementPending.current) return;
+      insertionPending.current = false;
+      await addImage(new File([record.image], 'screenshot.png', { type: 'image/png' }));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not capture another screenshot.');
+    } finally {
+      insertionPending.current = false;
+      setInserting(false);
+      setAddingScreenshot(false);
     }
   }
 
@@ -795,6 +829,7 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
         const shortcuts: Record<string, Tool> = {
           v: 'select',
           a: 'arrow',
+          l: 'line',
           p: 'pen',
           r: 'rectangle',
           t: 'text',
@@ -968,6 +1003,7 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
         returning={returning}
         onReturn={() => void backToWebsite()}
         onAddImage={() => layerInput.current?.click()}
+        onAddScreenshot={platform.captureScreenshot ? () => void addScreenshot() : undefined}
         onOpenImage={() => fileInput.current?.click()}
         onDownloadImage={() => void exportImage('save')}
         onCopyImage={() => void exportImage('copy')}
@@ -1211,9 +1247,15 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
           {message}
         </div>
       )}
-      {(loading || inserting || capturing) && image && (
+      {(loading || inserting || capturing || addingScreenshot) && image && (
         <div className="loading-strip" role="status">
-          {capturing ? 'Capturing screenshot…' : inserting ? 'Adding image…' : 'Opening image…'}
+          {capturing
+            ? 'Capturing screenshot…'
+            : addingScreenshot
+              ? 'Capturing screenshot to add…'
+              : inserting
+                ? 'Adding image…'
+                : 'Opening image…'}
         </div>
       )}
       {dragOver && (

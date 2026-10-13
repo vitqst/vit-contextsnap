@@ -47,11 +47,20 @@ export interface ArrowObject extends ObjectBase {
   end: Point;
   control: Point;
   mode?: 'straight' | 'curved';
+  /** Missing fields preserve the original one-way open arrow. */
+  direction?: 'one-way' | 'two-way';
+  appearance?: 'standard' | 'bold';
   label: string;
   /** Label typography is independent of the arrow's stroke thickness. Defaults to 20. */
   labelFontSize?: number;
   /** Source-pixel offset from the default tail label position. */
   labelOffset: Point;
+}
+
+export interface LineObject extends ObjectBase {
+  type: 'line';
+  start: Point;
+  end: Point;
 }
 
 export interface PenObject extends ObjectBase {
@@ -115,6 +124,7 @@ export interface ImageObject extends ObjectBase {
 
 export type DrawingObject =
   | ArrowObject
+  | LineObject
   | PenObject
   | RectangleObject
   | TextObject
@@ -126,6 +136,7 @@ export type DrawingObject =
 export type Tool =
   | 'select'
   | 'arrow'
+  | 'line'
   | 'pen'
   | 'rectangle'
   | 'text'
@@ -136,6 +147,7 @@ export type Tool =
   | 'blur'
   | 'magnifier';
 export type ArrowHandle = 'start' | 'end' | 'control' | 'label';
+export type LineHandle = 'start' | 'end';
 
 export interface EditorDocument {
   version: 1;

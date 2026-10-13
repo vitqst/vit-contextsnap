@@ -160,6 +160,16 @@ The [original requirements](docs/spec/20260915-init-requirement.md) remain the l
 backlog. Live-page annotations/text output, full-page capture, localization, and Web Store
 publication are deferred. Pressure/speed brush controls are part of the RC preview above.
 
+## Upcoming editor additions (source builds)
+
+These additions are present on the current source branch but are not included in the
+v0.3.0 release ZIP linked above.
+
+- **Line (L)** draws a plain segment without an arrowhead. Hold Shift while creating a line
+  or moving one of its endpoints to snap it horizontally, vertically, or to a 45° diagonal.
+- Selected arrows can be **One-way** or **Two-way** and use the original open **Standard**
+  style or a filled tapered **Bold** style.
+
 ## Shortcuts
 
 | Action                                                  | Shortcut                                    |

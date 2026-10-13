@@ -1,6 +1,7 @@
 import type { ArrowHandle, ArrowObject, DrawingObject, Point, Rect } from './model';
 import { getArrowLabelLayout, moveArrowLabelBy } from './arrow-label';
 import { arrowControl } from './arrows';
+import { arrowAppearance, arrowHeads, boldArrowOutline } from './arrow-shape';
 import { getNoteLayout } from './notes';
 import { penOutline } from './brush';
 import { getTextCardRect, getTextLayout } from './text-layout';
@@ -71,6 +72,12 @@ export function moveObject<T extends DrawingObject>(object: T, delta: Point): T 
         control: add(object.control, delta),
         labelOffset: { ...object.labelOffset },
       };
+    case 'line':
+      return {
+        ...object,
+        start: add(object.start, delta),
+        end: add(object.end, delta),
+      };
     case 'pen':
       return {
         ...object,
@@ -117,6 +124,15 @@ export function objectBounds(object: DrawingObject, sceneBounds?: Rect): Rect {
 function baseObjectBounds(object: DrawingObject, sceneBounds?: Rect): Rect {
   switch (object.type) {
     case 'arrow': {
+      if (arrowAppearance(object) === 'bold') {
+        let bounds = expand(
+          boundsOfPoints(boldArrowOutline(object)),
+          object.style.sketch ? object.style.width / 2 + 2 : 0,
+        );
+        if (object.label.trim())
+          bounds = union(bounds, getArrowLabelLayout(object, sceneBounds).rect);
+        return bounds;
+      }
       const control = arrowControl(object);
       const points = [object.start, object.end];
       for (const axis of ['x', 'y'] as const) {
@@ -125,8 +141,7 @@ function baseObjectBounds(object: DrawingObject, sceneBounds?: Rect): Rect {
         const t = (object.start[axis] - control[axis]) / divisor;
         if (t > 0 && t < 1) points.push(quadraticPoint(object.start, control, object.end, t));
       }
-      const head = arrowHeadPoints(object);
-      points.push(...head);
+      for (const head of arrowHeads(object)) points.push(...head.corners);
       let bounds = expand(
         boundsOfPoints(points),
         object.style.width / 2 + (object.style.sketch ? 2 : 0),
@@ -135,6 +150,11 @@ function baseObjectBounds(object: DrawingObject, sceneBounds?: Rect): Rect {
         bounds = union(bounds, getArrowLabelLayout(object, sceneBounds).rect);
       return bounds;
     }
+    case 'line':
+      return expand(
+        boundsOfPoints([object.start, object.end]),
+        object.style.width / 2 + (object.style.sketch ? 2 : 0),
+      );
     case 'pen':
       return boundsOfPoints(penBoundary(object));
     case 'text': {
@@ -184,6 +204,8 @@ export function hitTestObject(
         contains(expand(getArrowLabelLayout(object, sceneBounds).rect, tolerance), point)
       )
         return true;
+      if (arrowAppearance(object) === 'bold')
+        return hitFilledOutline(boldArrowOutline(object), point, tolerance);
       // Dense sampling follows tight bends too, while keeping pointer work bounded.
       const control = arrowControl(object);
       const length = distance(object.start, control) + distance(control, object.end);
@@ -194,10 +216,12 @@ export function hitTestObject(
         if (distanceToSegment(point, previous, next) <= padding) return true;
         previous = next;
       }
-      return arrowHeadPoints(object).some(
-        (head) => distanceToSegment(point, object.end, head) <= padding,
+      return arrowHeads(object).some(({ tip, corners }) =>
+        corners.some((corner) => distanceToSegment(point, tip, corner) <= padding),
       );
     }
+    case 'line':
+      return distanceToSegment(point, object.start, object.end) <= padding;
     case 'pen':
       return hitFilledOutline(penBoundary(object), point, tolerance);
     case 'text':
@@ -224,18 +248,7 @@ export function hitTestObject(
 
 /** Open arrowhead follows the final curve tangent, including sharp endpoint edits. */
 export function arrowHeadPoints(arrow: ArrowObject): [Point, Point] {
-  const control = arrowControl(arrow);
-  const tangent = distance(arrow.end, control) > 0.001 ? control : arrow.start;
-  const angle = Math.atan2(arrow.end.y - tangent.y, arrow.end.x - tangent.x);
-  const headLength = Math.min(
-    Math.max(14, arrow.style.width * 4.5),
-    Math.max(6, distance(arrow.start, arrow.end) * 0.4),
-  );
-  const opening = Math.PI / 7;
-  return [angle - opening, angle + opening].map((direction) => ({
-    x: arrow.end.x - Math.cos(direction) * headLength,
-    y: arrow.end.y - Math.sin(direction) * headLength,
-  })) as [Point, Point];
+  return arrowHeads(arrow).at(-1)!.corners;
 }
 
 function penBoundary(object: Extract<DrawingObject, { type: 'pen' }>): Point[] {

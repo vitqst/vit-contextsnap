@@ -22,6 +22,7 @@ import {
   type StepObject,
 } from './model';
 import { getArrowLabelLayout } from './arrow-label';
+import { boldArrowOutline } from './arrow-shape';
 import { penOutline } from './brush';
 
 const arrow: ArrowObject = {
@@ -127,6 +128,21 @@ describe('quadratic arrow geometry', () => {
     expect(bounds.x + bounds.width).toBeGreaterThanOrEqual(200);
     expect(bounds.y + bounds.height).toBeGreaterThanOrEqual(50);
     expect(bounds.y + bounds.height).toBeLessThan(100);
+  });
+
+  it('pads a sketchy Bold silhouette so export bounds do not clip its outline', () => {
+    const bold = {
+      ...arrow,
+      appearance: 'bold' as const,
+      direction: 'two-way' as const,
+      label: '',
+    };
+    const points = boldArrowOutline(bold);
+    const minX = Math.min(...points.map((point) => point.x));
+    const maxX = Math.max(...points.map((point) => point.x));
+    const bounds = objectBounds(bold);
+    expect(bounds.x).toBeLessThan(minX);
+    expect(bounds.x + bounds.width).toBeGreaterThan(maxX);
   });
 });
 

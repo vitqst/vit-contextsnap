@@ -378,6 +378,16 @@ function noteBounds(object: DrawingObject): Rect {
         height: Math.max(52, Math.max(object.start.y, object.control.y, object.end.y) - y),
       };
     }
+    case 'line': {
+      const x = Math.min(object.start.x, object.end.x);
+      const y = Math.min(object.start.y, object.end.y);
+      return {
+        x,
+        y,
+        width: Math.max(80, Math.abs(object.end.x - object.start.x)),
+        height: Math.max(52, Math.abs(object.end.y - object.start.y)),
+      };
+    }
   }
 }
 
