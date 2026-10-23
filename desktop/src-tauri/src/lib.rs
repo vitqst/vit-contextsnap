@@ -7,6 +7,7 @@ mod image_io;
 mod ime;
 mod lifecycle;
 mod png;
+mod shortcuts;
 
 use std::{
     io::Write,
@@ -153,6 +154,15 @@ pub fn run() {
         .manage(CaptureState::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, shortcut, event| {
+                    if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                        shortcuts::handle(app, shortcut);
+                    }
+                })
+                .build(),
+        )
         .setup(|app| {
             let created = match lifecycle::install_tray(app) {
                 Ok(()) => true,
@@ -162,6 +172,7 @@ pub fn run() {
                 }
             };
             app.manage(lifecycle::TrayState::new(created));
+            shortcuts::install(app.handle());
             #[cfg(target_os = "linux")]
             if let Some(window) = app.get_webview_window("main") {
                 // Runs on the UI thread, after Wry has applied its default settings.
@@ -189,7 +200,9 @@ pub fn run() {
             read_clipboard_png,
             copy_png,
             save_png,
-            quit_app
+            quit_app,
+            shortcuts::get_capture_shortcuts,
+            shortcuts::set_capture_shortcuts
         ])
         .run(tauri::generate_context!())
         .expect("Failed to run ContextSnap Desktop");

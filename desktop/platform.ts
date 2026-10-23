@@ -64,8 +64,25 @@ export const desktopPlatform: EditorPlatform = {
     };
   },
   async watchCapture(onCapture) {
-    return getCurrentWindow().listen('contextsnap:capture-requested', onCapture);
+    const window = getCurrentWindow();
+    const stopCapture = await window.listen('contextsnap:capture-requested', () =>
+      onCapture(false),
+    );
+    try {
+      const stopCopy = await window.listen('contextsnap:capture-copy-requested', () =>
+        onCapture(true),
+      );
+      return () => {
+        stopCapture();
+        stopCopy();
+      };
+    } catch (error) {
+      stopCapture();
+      throw error;
+    }
   },
+  getCaptureShortcuts: () => nativeCall('get_capture_shortcuts'),
+  setCaptureShortcuts: (settings) => nativeCall('set_capture_shortcuts', { settings }),
   async watchClose(shouldConfirm, onError) {
     const appWindow = getCurrentWindow();
     let asking = false;

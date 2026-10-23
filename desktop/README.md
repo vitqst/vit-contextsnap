@@ -98,7 +98,7 @@ Use the release `SHA256SUMS` asset to verify downloaded packages.
   drag inside to move, or drag outside to replace it. Escape cancels an unfinished adjustment
   and returns to Select; completed adjustments support undo/redo.
 - **X hides the editor to the system tray/menu bar**, preserving your image, layers, and undo history.
-- The tray menu offers **Screenshot**, **Open editor**, and **Quit ContextSnap**.
+- The tray menu offers **Screenshot**, **Screenshot & Copy**, **Open editor**, and **Quit ContextSnap**.
   Screenshot captures without showing the old editor first and replaces unexported work
   without confirmation. Opening an image file and Quit still warn before discarding work.
 - On Linux/X11, capture completion restores and activates the existing editor with a fresh
@@ -108,10 +108,22 @@ Use the release `SHA256SUMS` asset to verify downloaded packages.
 - **Quit** warns about unexported work; use the tray menu or **Ctrl+Q / Cmd+Q**.
   Closing the window no longer discards work or quits the app.
 
-The capture shortcut is **Ctrl+Shift+S** on Linux and **Cmd+Shift+S** on macOS while
-ContextSnap is focused. Like the header's **Capture** action and the tray's **Screenshot** action,
-the shortcut starts a new screenshot and replaces the current scene; use **Add screenshot** to
-keep the current scene. There is no global capture shortcut or automatic startup in this version.
+**Screenshot** captures and opens the image for editing. **Screenshot & Copy** also copies the
+new screenshot immediately as a PNG so it is ready to paste. Both actions appear in the header
+and tray. Canceling capture leaves the current document and clipboard alone. If copying fails,
+the new screenshot remains open and the error is shown so you can retry **Copy image**.
+
+The default global shortcuts are **Ctrl+Shift+4** for Screenshot and **Ctrl+Shift+Alt+4** for
+Screenshot & Copy. Open the keyboard button in the header to customize them. Settings persist
+across restarts; leave a field empty to disable that action's shortcut. Use `Super` for Command
+on macOS. Invalid, duplicate, or unavailable shortcuts show an error; a failed settings change
+keeps the previous shortcuts. Global shortcuts require ContextSnap to be running. Linux global
+registration uses X11; Wayland availability depends on the session's XWayland support. The tray
+and editor buttons remain available when a desktop cannot register the shortcuts.
+
+**Ctrl+Shift+S** on Linux / **Cmd+Shift+S** on macOS remains a focused editor capture shortcut.
+A new screenshot replaces the current scene; use **Add screenshot** to keep the current scene.
+There is no automatic startup in this version.
 The app stays running in the tray until you explicitly quit it.
 The ordinary editor shortcuts, including Ctrl/Cmd+C to copy and Ctrl/Cmd+Z to undo, also work.
 

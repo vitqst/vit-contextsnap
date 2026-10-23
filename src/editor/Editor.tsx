@@ -31,6 +31,7 @@ import { IconButton } from '../ui/IconButton';
 import { DrawingCanvas } from './DrawingCanvas';
 import { EditorFooter } from './EditorFooter';
 import { EditorHeader } from './EditorHeader';
+import { CaptureShortcutSettings } from './CaptureShortcutSettings';
 import { EmptyState } from './EmptyState';
 import { Properties } from './Properties';
 import { MultiSelectionProperties } from './MultiSelectionProperties';
@@ -86,6 +87,7 @@ function acceptsTextSelection(target: EventTarget | null): boolean {
 export function Editor({ platform }: { platform: EditorPlatform }) {
   const validateDocument = useRef<(doc: EditorDocument) => boolean>(() => true);
   const state = useDocument((doc) => validateDocument.current(doc));
+  const [shortcutSettingsOpen, setShortcutSettingsOpen] = useState(false);
   const [capture, setCapture] = useState<CaptureRecord | null>(null);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [tool, setTool] = useState<Tool>('arrow');
@@ -247,7 +249,7 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
     [openCapture, platform, busy, loading],
   );
 
-  async function captureScreenshot() {
+  async function captureScreenshot(copy = false) {
     if (
       !platform.captureScreenshot ||
       busy ||
@@ -267,7 +269,14 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
       // Explicit screenshot requests are a fast replacement workflow. Keep the
       // existing document until capture and decoding succeed, but do not prompt.
       const record = await platform.captureScreenshot();
-      if (record) await openCapture(record);
+      if (record) {
+        await openCapture(record);
+        if (copy) {
+          await platform.copyImage(Promise.resolve(record.image));
+          setExportedDocument(state.getCurrent());
+          setMessage('Screenshot copied. Ready to paste.');
+        }
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not capture the screen.');
     } finally {
@@ -317,8 +326,8 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
     let disposed = false;
     let unlisten: (() => void) | undefined;
     void platform
-      .watchCapture(() => {
-        if (!disposed) void captureFromTray.current();
+      .watchCapture((copy) => {
+        if (!disposed) void captureFromTray.current(copy);
       })
       .then((cleanup) => {
         if (disposed) cleanup();
@@ -1007,9 +1016,19 @@ export function Editor({ platform }: { platform: EditorPlatform }) {
         onOpenImage={() => fileInput.current?.click()}
         onDownloadImage={() => void exportImage('save')}
         onCopyImage={() => void exportImage('copy')}
+        onConfigureShortcuts={
+          platform.getCaptureShortcuts ? () => setShortcutSettingsOpen(true) : undefined
+        }
         saveLabel={platform.saveLabel}
         onCapture={platform.captureScreenshot ? () => void captureScreenshot() : undefined}
+        onCaptureCopy={platform.captureScreenshot ? () => void captureScreenshot(true) : undefined}
       />
+      {shortcutSettingsOpen && (
+        <CaptureShortcutSettings
+          platform={platform}
+          onClose={() => setShortcutSettingsOpen(false)}
+        />
+      )}
       {error && (
         <div className="editor-error" role="alert">
           <span>{error}</span>

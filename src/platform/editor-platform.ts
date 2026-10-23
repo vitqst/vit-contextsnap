@@ -1,6 +1,12 @@
 import type { ObjectStyle } from '../core/model';
 import type { CaptureRecord, RecentRecord } from './types';
 
+export interface CaptureShortcuts {
+  screenshot: string;
+  copy: string;
+  error?: string;
+}
+
 /** The editor owns image editing; its host owns operating-system and browser actions. */
 export interface EditorPlatform {
   loadDrawingStyle(): Promise<unknown>;
@@ -17,7 +23,9 @@ export interface EditorPlatform {
   returnToWebsite?(source: { url: string; allowCaptureOpener: boolean }): Promise<void>;
   /** Desktop quit requests; closing to the tray is handled by the native host. */
   watchClose?(shouldConfirm: () => boolean, onError: (error: unknown) => void): Promise<() => void>;
-  watchCapture?(onCapture: () => void): Promise<() => void>;
+  watchCapture?(onCapture: (copy?: boolean) => void): Promise<() => void>;
+  getCaptureShortcuts?(): Promise<CaptureShortcuts>;
+  setCaptureShortcuts?(settings: CaptureShortcuts): Promise<CaptureShortcuts>;
   saveRecent?(record: RecentRecord): Promise<void>;
 }
 

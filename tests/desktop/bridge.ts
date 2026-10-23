@@ -107,6 +107,10 @@ export const test = base.extend<{ desktop: Page }>({
                     bridge.releaseCapture = () => resolve(new ArrayBuffer(0));
                   });
                 return screenshot();
+              case 'get_capture_shortcuts':
+                return { screenshot: 'Ctrl+Shift+4', copy: 'Ctrl+Shift+Alt+4' };
+              case 'set_capture_shortcuts':
+                return args.settings;
               case 'save_png':
                 return bridge.saveAccepted;
               case 'copy_png':

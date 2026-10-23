@@ -40,6 +40,7 @@ impl TrayState {
 #[derive(Debug, PartialEq)]
 enum MenuAction {
     Capture,
+    CaptureCopy,
     Open,
     Quit,
 }
@@ -51,6 +52,7 @@ fn menu_action(id: &str, capture_active: bool) -> Option<MenuAction> {
     }
     match id {
         "screenshot" => Some(MenuAction::Capture),
+        "screenshot-copy" => Some(MenuAction::CaptureCopy),
         "open-editor" => Some(MenuAction::Open),
         "quit" => Some(MenuAction::Quit),
         _ => None,
@@ -103,7 +105,7 @@ fn dispatch_menu<E>(
     mut show: impl FnMut() -> Result<(), E>,
     emit: impl FnOnce(&str) -> Result<(), E>,
 ) -> Result<(), E> {
-    if action == MenuAction::Capture {
+    if matches!(action, MenuAction::Capture | MenuAction::CaptureCopy) {
         // The hidden webview can receive events. Do not flash the old document
         // before capture hides it again, and invalidate any in-flight close check.
         tray.cancel_pending_close();
@@ -112,11 +114,12 @@ fn dispatch_menu<E>(
     }
     let event = match action {
         MenuAction::Capture => "contextsnap:capture-requested",
+        MenuAction::CaptureCopy => "contextsnap:capture-copy-requested",
         MenuAction::Quit => "contextsnap:quit-requested",
         MenuAction::Open => return Ok(()),
     };
     if let Err(error) = emit(event) {
-        if action == MenuAction::Capture {
+        if matches!(action, MenuAction::Capture | MenuAction::CaptureCopy) {
             // A failed event cannot start the capture guard that normally restores
             // the editor. Keep the existing window accessible for retry instead.
             show()?;
@@ -162,11 +165,24 @@ pub fn handle_menu(app: &AppHandle, id: &str) {
 
 pub fn install_tray(app: &tauri::App) -> tauri::Result<()> {
     let capture = MenuItem::with_id(app, "screenshot", "Screenshot", true, None::<&str>)?;
+    let copy = MenuItem::with_id(
+        app,
+        "screenshot-copy",
+        "Screenshot & Copy",
+        true,
+        None::<&str>,
+    )?;
     let open = MenuItem::with_id(app, "open-editor", "Open editor", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit ContextSnap", true, None::<&str>)?;
     let menu = Menu::with_items(
         app,
-        &[&capture, &open, &PredefinedMenuItem::separator(app)?, &quit],
+        &[
+            &capture,
+            &copy,
+            &open,
+            &PredefinedMenuItem::separator(app)?,
+            &quit,
+        ],
     )?;
     let mut tray = TrayIconBuilder::with_id("contextsnap")
         .tooltip("ContextSnap Desktop")
@@ -380,6 +396,22 @@ mod tests {
         let result = prepare_capture(&state, || Ok(true), || Err("hide failed"));
         assert_eq!(result, Err("hide failed"));
         assert!(!state.is_current_close(pending));
+    }
+
+    #[test]
+    fn screenshot_copy_routes_without_showing_the_old_editor() {
+        let action = menu_action("screenshot-copy", false).expect("Screenshot & Copy menu action");
+        dispatch_menu(
+            action,
+            &TrayState::new(true),
+            || -> Result<(), &str> { panic!("must not show old editor before capture") },
+            |event| {
+                assert_eq!(event, "contextsnap:capture-copy-requested");
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(menu_action("screenshot-copy", true), None);
     }
 
     #[test]

@@ -1,4 +1,4 @@
-import { ArrowLeft, Camera, Copy, Download, FolderOpen, ImagePlus } from 'lucide-react';
+import { ArrowLeft, Camera, Copy, Download, FolderOpen, ImagePlus, Keyboard } from 'lucide-react';
 import { Brand } from '../ui/Brand';
 import { IconButton } from '../ui/IconButton';
 
@@ -14,6 +14,8 @@ interface Props {
   onDownloadImage: () => void;
   onCopyImage: () => void;
   saveLabel: string;
+  onCaptureCopy?: () => void;
+  onConfigureShortcuts?: () => void;
   onCapture?: () => void;
   onAddScreenshot?: () => void;
 }
@@ -31,6 +33,8 @@ export function EditorHeader({
   onCopyImage,
   saveLabel,
   onCapture,
+  onCaptureCopy,
+  onConfigureShortcuts,
   onAddScreenshot,
 }: Props) {
   return (
@@ -52,15 +56,36 @@ export function EditorHeader({
       <div className="header-actions">
         {onCapture && (
           <button
-            className="button"
+            className="button capture-action"
             aria-label="Capture screenshot"
-            title="Capture screenshot (⌘ / Ctrl Shift S)"
+            title="Screenshot"
             disabled={busy}
             onClick={onCapture}
           >
             <Camera size={16} />
-            <span>Capture</span>
+            <span>Screenshot</span>
           </button>
+        )}
+        {onCaptureCopy && (
+          <button
+            className="button capture-action"
+            aria-label="Screenshot & Copy"
+            title="Screenshot & Copy"
+            disabled={busy}
+            onClick={onCaptureCopy}
+          >
+            <Copy size={16} />
+            <span>Screenshot &amp; Copy</span>
+          </button>
+        )}
+        {onConfigureShortcuts && (
+          <IconButton
+            label="Configure screenshot shortcuts"
+            disabled={busy}
+            onClick={onConfigureShortcuts}
+          >
+            <Keyboard size={18} />
+          </IconButton>
         )}
         {canReturn && (
           <button

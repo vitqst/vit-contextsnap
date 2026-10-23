@@ -164,8 +164,25 @@ describe('tray lifecycle', () => {
       expect.any(Function),
     );
     await native.listen.mock.calls[0]![1]();
-    expect(onCapture).toHaveBeenCalledOnce();
+    expect(onCapture).toHaveBeenCalledWith(false);
     stop();
-    expect(cleanup).toHaveBeenCalledOnce();
+    expect(cleanup).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('capture modes and shortcuts', () => {
+  it('routes copy requests distinctly and cleans up both capture listeners', async () => {
+    const cleanup = vi.fn();
+    native.listen.mockResolvedValue(cleanup);
+    const callback = vi.fn();
+    const stop = await desktopPlatform.watchCapture!(callback);
+    const copy = native.listen.mock.calls.find(
+      ([event]) => event === 'contextsnap:capture-copy-requested',
+    );
+    expect(copy).toBeDefined();
+    await copy![1]();
+    expect(callback).toHaveBeenCalledWith(true);
+    stop();
+    expect(cleanup).toHaveBeenCalledTimes(2);
   });
 });

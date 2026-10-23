@@ -2,7 +2,12 @@
 
 ## Unreleased
 
-No changes yet.
+- Add separate desktop **Screenshot** and **Screenshot & Copy** actions in the editor and tray;
+  the copy action immediately places the captured PNG on the clipboard, ready to paste.
+- Add configurable global shortcuts, defaulting to **Ctrl+Shift+4** for Screenshot and
+  **Ctrl+Shift+Alt+4** for Screenshot & Copy, with settings saved across restarts.
+- Validate shortcut conflicts and preserve previous bindings when an update fails. Keep capture
+  controls accessible at the minimum desktop window size.
 
 ## 0.3.1 — Screenshot layers and drawing tools
 
